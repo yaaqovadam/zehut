@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "zehut-engine"
+  },
+  "targets": {
+    "zehut-engine": {
+      "hosting": {
+        "zehut-100-days": [
+          "zehut-100-days"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

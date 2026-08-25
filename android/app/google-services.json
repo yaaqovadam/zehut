@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "452934157748",
+    "project_id": "zehut-engine",
+    "storage_bucket": "zehut-engine.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:452934157748:android:8977db6a01575fa83e9ee1",
+        "android_client_info": {
+          "package_name": "com.example.zehut_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBpk4SwOqS38bcDk2JL2tlwM57mxpWS-qE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

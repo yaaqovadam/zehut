@@ -1,0 +1,66 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "zehut-engine",
+          "appId": "1:452934157748:android:8977db6a01575fa83e9ee1",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "zehut-engine",
+          "appId": "1:452934157748:ios:19a7ee6d95d519f23e9ee1",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "zehut-engine",
+          "configurations": {
+            "android": "1:452934157748:android:8977db6a01575fa83e9ee1",
+            "ios": "1:452934157748:ios:19a7ee6d95d519f23e9ee1",
+            "web": "1:452934157748:web:16c96ae346a653083e9ee1"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "target": "zehut-100-days",
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "/",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "**/*.@(js|html|json|wasm)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      }
+    ]
+  }
+}
