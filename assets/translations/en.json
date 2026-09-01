@@ -5,41 +5,39 @@
   "tab_100_days": "100 Days",
   "tab_action": "Mobilize",
 
-  "plan_title": "The 100 Day Plan",
+  "plan_title": "Zehut's 8 Point Plan",
   "plan_subtitle": "Swipe up or right if you agree. Left to skip.",
 
-  "pol_1_day": "Day 1",
+  "pol_1_day": "Point 1",
   "pol_1_title": "Clean the General Staff",
-  "pol_1_desc": "Fire the high command responsible for Oct 7th. Immediately promote the battlefield commanders to lead the IDF.",
+  "pol_1_desc": "Fire the high command responsible for Oct 7th. The purpose of war is decisive victory—not managing endless rounds of fighting to maintain a status quo, trapped in a vicious loop where our sons, daughters, and friends die for nothing.",
 
-  "pol_2_day": "Day 14",
+  "pol_2_day": "Point 2",
   "pol_2_title": "The Reservist Shield",
-  "pol_2_desc": "Full income tax exemption for one year for any combat reservist who served over 100 days. The state pays the heroes.",
+  "pol_2_desc": "Full income tax exemption for one year for any combat reservist who served over 100 days. Use the Reservist Shield calculator in this app to see exactly how much you are owed. The state pays the heroes.",
 
-  "pol_3_day": "Day 30",
+  "pol_3_day": "Point 3",
   "pol_3_title": "Arm the Citizens",
-  "pol_3_desc": "Implement the Swiss Model: massive arming and training of eligible citizens. A defense squad on every street.",
+  "pol_3_desc": "Implement the Swiss Model: massive arming and mandatory basic training for ALL eligible citizens, including Haredim. A defense squad on every street.",
 
-  "pol_4_day": "Day 60",
-  "pol_4_title": "Smash the Monopolies",
-  "pol_4_desc": "Absolute opening of the market to parallel imports. Crush the food cartels and slash the cost of living.",
+  "pol_4_day": "Point 4",
+  "pol_4_title": "The Land Belongs to the People",
+  "pol_4_desc": "Stop the plunder of state land. If we are forced into war, whoever fights for the state receives land. Whoever fights against the state won't get a single centimeter. Whatever we win in blood, we keep.",
 
-  "pol_5_day": "Day 100",
+  "pol_5_day": "Point 5",
   "pol_5_title": "Absolute Sovereignty",
-  "pol_5_desc": "Total cancellation of the Oslo Accords. Full Israeli sovereignty and freedom of worship on the Temple Mount.",
+  "pol_5_desc": "Total cancellation of the Oslo Accords. Full Israeli sovereignty over the entire land, and absolute freedom of Jewish worship on the Temple Mount. We are done apologizing for who we are.",
+  "pol_6_day": "Point 6",
+  "pol_6_title": "Economic Freedom",
+  "pol_6_desc": "Smash the monopolies. Absolute opening of the market to parallel imports to crush the cartels, slash the cost of living, and return money to the citizens.",
 
-  "pol_6_day": "Day 30",
-  "pol_6_title": "End the Gaslighting",
-  "pol_6_desc": "Citizens heard tunnels under their beds and the system mocked them. We will establish a civilian oversight body to ensure intelligence never ignores the citizens.",
-
-  "pol_7_day": "Day 60",
+  "pol_7_day": "Point 7",
   "pol_7_title": "Disarm the Enemy Within",
-  "pol_7_desc": "While Jews beg for pistol licenses, the Arab sector holds military arsenals. We will launch Operation Defensive Shield 2 to confiscate all illegal weapons.",
+  "pol_7_desc": "While Jews beg for pistol licenses, the Arab sector holds military arsenals. We will launch Operation Defensive Shield 2 to confiscate all illegal weapons inside Israel.",
 
-  "pol_8_day": "Day 10",
-  "pol_8_title": "Absolute Victory",
-  "pol_8_desc": "Total overhaul of the rules of engagement: the lives of our soldiers matter more than the enemy's. Territory conquered in blood stays ours.",
-
+  "pol_8_day": "Point 8",
+  "pol_8_title": "Jewish Identity",
+  "pol_8_desc": "A clear Jewish identity as the engine of our national resilience. Less state coercion, more freedom for the citizen, and unapologetic national pride.",
   "capture_title": "Calculating Results...",
   "capture_desc_phone": "Enter your mobile phone number to unlock your full match report.",
   "capture_hint": "Mobile Phone Number",
@@ -63,8 +61,8 @@
   "tax_saved": "Your Annual Savings with Zehut:",
   "share_platoon": "Share with Platoon",
 
-  "map_title": "Sovereignty Map",
-  "map_subtitle": "The government won't protect you when war breaks out. Join the civil defense network.",
+  "map_title": "Kitat Konenut Sovereignty Map",
+  "map_subtitle": "On October 7th, the State abandoned us for 8 hours. Don't wait for rescue. Map your sector, and let's arm up.",
   "map_btn_organize": "I am ready to organize my street",
   "map_dialog_title": "Join the Network",
   "map_dialog_status_armed": "I am a combat vet / Armed",
@@ -89,6 +87,7 @@
   "map_btn_reset": "Reset to my location",
   "map_btn_edit_status": "Edit My Defense Status",
   "tap_to_unmute": "Unmute the Truth",
+  "sound_btn": "Sound",
   "secure_verification_title": "Secure Verification",
   "secure_verification_desc": "Tap below to verify your identity via WhatsApp and reveal your Sovereign Match.",
   "capture_error_phone": "Please enter a valid phone number",
@@ -98,5 +97,9 @@
   "feed_share_btn": "Share",
   "clip_1_share_text": "Who is the Real Enemy? (The Media is Hiding This From You)",
   "clip_2_share_text": "Gantz vs. Winter: Why are soldiers entering booby-trapped houses instead of bombing from the air? Watch Feiglin's chilling monologue.",
-  "whatsappVerifyMsg": "Tap the Send button to verify"
+  "whatsappVerifyMsg": "Tap the Send button to verify",
+  "tutorial_swipe_up": "Swipe up for the next video",
+  "tutorial_video_starts_shortly": "(The video will start shortly)",
+  "play_btn": "Play",
+  "pause_btn": "Pause"
 }

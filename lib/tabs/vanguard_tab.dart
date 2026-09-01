@@ -85,14 +85,32 @@ class _VanguardTabState extends State<VanguardTab> {
                 controller: _screenshotController,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: _isCapturing ? const Color(0xFF0A0A1A) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(_isCapturing ? 20 : 0),
+                    color: _isCapturing ? Colors.white : Colors.transparent,                    borderRadius: BorderRadius.circular(_isCapturing ? 20 : 0),
                   ),
                   padding: _isCapturing ? const EdgeInsets.all(20.0) : EdgeInsets.zero,
                   child: Column(
                     children: [
                       const SizedBox(height: 10),
-                      Icon(Icons.shield, size: 70, color: Theme.of(context).primaryColor),
+                      // 👇 THE SHIELD WITH MAGEN DAVID 👇
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Icon(Icons.shield, size: 70, color: Theme.of(context).primaryColor),
+                          const Padding(
+                            // Nudges the star up slightly to sit perfectly in the wider chest of the shield
+                            padding: EdgeInsets.only(bottom: 6.0),
+                            child: Text(
+                              '\u2721\uFE0E', // Magen David unicode + Text presentation selector
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 36,
+                                height: 1.0,
+                                fontWeight: FontWeight.bold
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 15),
                       Text(
                         "shield_title".tr(),
@@ -100,7 +118,7 @@ class _VanguardTabState extends State<VanguardTab> {
                         style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.w900,
-                          color: Theme.of(context).primaryColor,
+                          color: const Color(0xFF103856),
                         ),
                       ),
                       const SizedBox(height: 15),
@@ -109,8 +127,7 @@ class _VanguardTabState extends State<VanguardTab> {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: context.locale.languageCode == 'he' ? 16 : 14,
-                          color: Colors.grey,
-                          height: 1.4,
+                          color: const Color(0xFF103856).withOpacity(0.9), // Darker, higher contrast                          height: 1.4,
                         ),
                       ),
                       const SizedBox(height: 40),
@@ -141,71 +158,45 @@ class _VanguardTabState extends State<VanguardTab> {
                       const SizedBox(height: 40),
 
                       // Result Card
+                      // Result Card
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(25),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [Color(0xFF166534), Color(0xFF14532D)],
-                          ),
+                          color: const Color(0xFF25D366),
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.green.withOpacity(0.15),
+                              color: const Color(0xFF25D366).withOpacity(0.4),
                               blurRadius: 20,
                               spreadRadius: 2,
                             ),
                           ],
                         ),
                         child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            context.locale.languageCode == 'he'
-                                ? RichText(
+                            // 1. Safe, standard Text widget (No RichText)
+                            Text(
+                              context.locale.languageCode == 'he'
+                                  ? "המדינה אשכרה חייבת לך:"
+                                  : "The state really owes you:",
                               textAlign: TextAlign.center,
-                              text: const TextSpan(
-                                style: TextStyle(color: Colors.white70, fontSize: 18),
-                                children: [
-                                  TextSpan(text: "המדינה "),
-                                  TextSpan(
-                                    text: "אשכרה ",
-                                    style: TextStyle(
-                                      fontStyle: FontStyle.italic,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  TextSpan(text: "חייבת לך:"),
-                                ],
-                              ),
-                            )
-                                : RichText(
-                              textAlign: TextAlign.center,
-                              text: const TextSpan(
-                                style: TextStyle(color: Colors.white70, fontSize: 18),
-                                children: [
-                                  TextSpan(text: "The state "),
-                                  TextSpan(
-                                    text: "really ",
-                                    style: TextStyle(
-                                      fontStyle: FontStyle.italic,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  TextSpan(text: "owes you:"),
-                                ],
+                              style: const TextStyle(
+                                color: Color(0xFF1E293B), // Dark slate/grey
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                             const SizedBox(height: 10),
+                            // 2. FittedBox to safely scale the giant number
                             FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text(
                                 "₪${_calculatedSavings.toStringAsFixed(0)}",
                                 maxLines: 1,
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: Color(0xFF1E293B), // Dark slate/grey
                                   fontSize: 48,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 1,
@@ -269,8 +260,7 @@ class _VanguardTabState extends State<VanguardTab> {
                   fit: BoxFit.scaleDown,
                   child: Text(
                     title,
-                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
+                    style: const TextStyle(color: Color(0xFF103856), fontSize: 16, fontWeight: FontWeight.bold),                  ),
                 ),
               ),
             ),

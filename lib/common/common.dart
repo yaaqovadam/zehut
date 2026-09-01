@@ -1,8 +1,8 @@
 import 'dart:math';
 import 'dart:ui';
 
-Color topAndBottomNavigationBarColor= Color(0xFF1f1a54);
-
+// Color topAndBottomNavigationBarColor= Color(0xFF1f1a54);
+const Color topAndBottomNavigationBarColor = Color(0xFF103856);
 String generateSecureToken() {
   const chars = 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890';
   final rnd = Random.secure();

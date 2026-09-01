@@ -678,7 +678,8 @@ class _ActionTabState extends State<ActionTab> {
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+                // 👇 Changed dark_all to light_all
+                urlTemplate: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
                 subdomains: const ['a', 'b', 'c', 'd'],
               ),
               StreamBuilder<QuerySnapshot>(
@@ -705,8 +706,8 @@ class _ActionTabState extends State<ActionTab> {
                           Icons.location_on,
                           size: isSelf ? 46 : 40,
                           color: isSelf
-                              ? Colors.cyanAccent
-                              : (isArmed ? Colors.amber : Colors.redAccent),
+                              ? const Color(0xFF103856) // Dark blue for the user's own pin
+                              : (isArmed ? Colors.lightBlue : Colors.redAccent),
                         ),
                       ),
                     );
@@ -723,7 +724,8 @@ class _ActionTabState extends State<ActionTab> {
                 child: Icon(
                   Icons.location_on,
                   size: 45,
-                  color: selectedStatus == 'armed' ? Colors.amber : Colors.redAccent,
+                  // 👇 Update this to match the new logic
+                  color: selectedStatus == 'armed' ? Colors.lightBlue : Colors.redAccent,
                 ),
               ),
             ),
@@ -743,13 +745,16 @@ class _ActionTabState extends State<ActionTab> {
                     children: [
                       Text(
                         "map_title".tr(),
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor),
+                        style: TextStyle(fontSize: Localizations.localeOf(context).languageCode == 'en' ?21:24, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor),
                       ),
                       const SizedBox(height: 5),
                       Text(
                         "map_subtitle".tr(),
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white70, fontSize: 14),
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: Localizations.localeOf(context).languageCode == 'en' ? 12.5 : 14.0,
+                        ),
                       ),
                     ],
                   ),

@@ -29,7 +29,7 @@
     }
   },
   "hosting": {
-    "target": "zehut-100-days",
+    "site": "zehut-100-days",
     "public": "build/web",
     "ignore": [
       "firebase.json",

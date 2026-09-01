@@ -9,6 +9,7 @@ import 'package:watch_it/watch_it.dart';
 import 'dart:math';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:ui' as ui;
 
 class PlanTab extends StatefulWidget {
   const PlanTab({super.key});
@@ -30,15 +31,14 @@ class _PlanTabState extends State<PlanTab> {
 
   final List<Map<String, dynamic>> _policies = [
     {"day": "pol_1_day", "title": "pol_1_title", "desc": "pol_1_desc", "icon": Icons.military_tech, "color": const Color(0xFFB91C1C)},
-    {"day": "pol_8_day", "title": "pol_8_title", "desc": "pol_8_desc", "icon": Icons.gavel, "color": const Color(0xFFE11D48)},
     {"day": "pol_2_day", "title": "pol_2_title", "desc": "pol_2_desc", "icon": Icons.shield, "color": const Color(0xFFF59E0B)},
-    {"day": "pol_6_day", "title": "pol_6_title", "desc": "pol_6_desc", "icon": Icons.hearing_disabled, "color": const Color(0xFF9333EA)},
     {"day": "pol_3_day", "title": "pol_3_title", "desc": "pol_3_desc", "icon": Icons.security, "color": const Color(0xFF3B82F6)},
-    {"day": "pol_7_day", "title": "pol_7_title", "desc": "pol_7_desc", "icon": Icons.warning_amber_rounded, "color": const Color(0xFFF97316)},
     {"day": "pol_4_day", "title": "pol_4_title", "desc": "pol_4_desc", "icon": Icons.shopping_cart_checkout, "color": const Color(0xFF10B981)},
     {"day": "pol_5_day", "title": "pol_5_title", "desc": "pol_5_desc", "icon": Icons.flag, "color": const Color(0xFFD4AF37)},
+    {"day": "pol_6_day", "title": "pol_6_title", "desc": "pol_6_desc", "icon": Icons.hearing_disabled, "color": const Color(0xFF9333EA)},
+    {"day": "pol_7_day", "title": "pol_7_title", "desc": "pol_7_desc", "icon": Icons.warning_amber_rounded, "color": const Color(0xFFF97316)},
+    {"day": "pol_8_day", "title": "pol_8_title", "desc": "pol_8_desc", "icon": Icons.gavel, "color": const Color(0xFFE11D48)},
   ];
-
   @override
   void dispose() {
     controller.dispose();
@@ -180,7 +180,7 @@ class _PlanTabState extends State<PlanTab> {
                     children: [
                       Text(
                         "plan_title".tr(),
-                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Theme.of(context).primaryColor),
+                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.lightBlue),
                       ),
                       if (showCaptureWall)
                         PositionedDirectional(
@@ -244,6 +244,7 @@ class _PlanTabState extends State<PlanTab> {
                 return _SmartPolicyCard(
                   policy: _policies[index],
                   isFirstCard: index == 0, // 🔥 THE TRIGGER FOR THE GHOST NUDGE
+                  index: index, // <--- ADD THIS LINE
                 );
               },
               onSwipe: _onSwipe,
@@ -271,31 +272,38 @@ class _PlanTabState extends State<PlanTab> {
         ),
         Padding(
           padding: const EdgeInsets.only(bottom: 23.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              FloatingActionButton(
-                heroTag: "btn_reject",
-                onPressed: () => controller.swipe(CardSwiperDirection.left),
-                backgroundColor: Colors.red.withOpacity(0.2),
-                elevation: 0,
-                child: const Icon(Icons.close, color: Colors.red, size: 30),
-              ),
-              FloatingActionButton.small(
-                heroTag: "btn_undo",
-                onPressed: () => controller.undo(),
-                backgroundColor: Colors.grey.withOpacity(0.2),
-                elevation: 0,
-                child: const Icon(Icons.undo, color: Colors.grey),
-              ),
-              FloatingActionButton(
-                heroTag: "btn_accept",
-                onPressed: () => controller.swipe(CardSwiperDirection.right),
-                backgroundColor: Colors.green.withOpacity(0.2),
-                elevation: 0,
-                child: const Icon(Icons.check, color: Colors.green, size: 30),
-              ),
-            ],
+          // 👇 FORCES LEFT-TO-RIGHT LAYOUT SO CHECK IS ALWAYS ON THE RIGHT 👇
+          child: Directionality(
+            textDirection: ui.TextDirection.ltr,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                // 1. REJECT BUTTON (Red)
+                FloatingActionButton(
+                  heroTag: "btn_reject",
+                  onPressed: () => controller.swipe(CardSwiperDirection.left),
+                  backgroundColor: Colors.red.withOpacity(0.15),
+                  elevation: 0,
+                  child: const Icon(Icons.close, color: Colors.red, size: 30),
+                ),
+                // 2. UNDO BUTTON (Grey)
+                FloatingActionButton.small(
+                  heroTag: "btn_undo",
+                  onPressed: () => controller.undo(),
+                  backgroundColor: Colors.grey.withOpacity(0.15),
+                  elevation: 0,
+                  child: const Icon(Icons.undo, color: Colors.grey),
+                ),
+                // 3. ACCEPT BUTTON (Zehut Blue/Cyan instead of Green)
+                FloatingActionButton(
+                  heroTag: "btn_accept",
+                  onPressed: () => controller.swipe(CardSwiperDirection.right),
+                  backgroundColor: const Color(0xFF53C8E5).withOpacity(0.2), // Light Cyan BG
+                  elevation: 0,
+                  child: const Icon(Icons.check, color: Colors.lightBlue, size: 30), // Cyan Icon
+                ),
+              ],
+            ),
           ),
         )
       ],
@@ -309,7 +317,7 @@ class _PlanTabState extends State<PlanTab> {
     if (_pendingPhone != null && _authCode != null) {
       return StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance.collection('citizens').doc(_pendingPhone).snapshots(),
-        builder: (streamContext, snapshot) { // RENAMED TO PREVENT SHADOWING
+        builder: (streamContext, snapshot) {
           if (snapshot.hasData && snapshot.data!.exists) {
             final data = snapshot.data!.data() as Map<String, dynamic>?;
             var v = data?['verified'];
@@ -328,7 +336,6 @@ class _PlanTabState extends State<PlanTab> {
                 await di<AppState>().savePhone(verifiedPhone);
 
                 Future.delayed(const Duration(milliseconds: 400), () {
-                  // SAFELY CALL USING THE MAIN PARENT CONTEXT
                   if (parentContext.mounted) {
                     _showA2HSBottomSheet(parentContext);
                   }
@@ -337,6 +344,7 @@ class _PlanTabState extends State<PlanTab> {
             }
           }
 
+          // --- SCREEN 2: THE VERIFICATION SCREEN (LOCK ICON) ---
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(30.0),
@@ -344,18 +352,21 @@ class _PlanTabState extends State<PlanTab> {
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.lock_outline, size: 80, color: Colors.orangeAccent),
+                  // 1. Updated Icon to use the Theme color
+                  Icon(Icons.lock_outline, size: 80, color: Theme.of(context).primaryColor),
                   const SizedBox(height: 20),
                   Text(
                     "verify_secure_title".tr(),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900),
+                    // 2. Updated Title to Zehut Navy so it's visible on white
+                    style: const TextStyle(color: Color(0xFF103856), fontSize: 32, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 15),
                   Text(
                     "verify_secure_desc".tr(),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.grey, fontSize: 16, height: 1.4),
+                    // 3. Updated Subtitle to dark Navy-Grey
+                    style: TextStyle(color: const Color(0xFF103856).withOpacity(0.7), fontSize: 16, height: 1.4),
                   ),
                   const SizedBox(height: 40),
                   ValueListenableBuilder<int>(
@@ -384,14 +395,8 @@ class _PlanTabState extends State<PlanTab> {
                         } : () async {
                           di<AppState>().registerAuthAttempt();
                           const burnerPhone = "972525822005";
-
-                          // 1. Grab the localized string
                           String instruction = "whatsappVerifyMsg".tr();
-
-                          // 2. Build string: Code + EXACTLY ONE SPACE + Instruction
                           String whatsappMessage = "$_authCode $instruction";
-
-                          // 3. Encode to prevent URL breaking
                           String encodedMessage = Uri.encodeComponent(whatsappMessage);
 
                           final url = Uri.parse("https://wa.me/$burnerPhone?text=$encodedMessage");
@@ -413,7 +418,8 @@ class _PlanTabState extends State<PlanTab> {
                     },
                     child: Text(
                       "change_phone_btn".tr(),
-                      style: const TextStyle(color: Colors.grey, fontSize: 14),
+                      // 4. Update secondary button text to be darker
+                      style: TextStyle(color: const Color(0xFF103856).withOpacity(0.6), fontSize: 14, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -424,6 +430,7 @@ class _PlanTabState extends State<PlanTab> {
       );
     }
 
+    // --- SCREEN 1: THE CAPTURE SCREEN (ANALYTICS ICON) ---
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       behavior: HitTestBehavior.opaque,
@@ -437,18 +444,21 @@ class _PlanTabState extends State<PlanTab> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.analytics, size: 80, color: Colors.blueAccent),
+                  // 5. Updated Icon from blueAccent to the global theme primaryColor
+                  Icon(Icons.analytics, size: 80, color: Theme.of(context).primaryColor),
                   const SizedBox(height: 20),
                   Text(
                     "capture_title".tr(),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900),
+                    // 6. Updated title to Zehut Navy (was Colors.white)
+                    style: const TextStyle(color: Color(0xFF103856), fontSize: 32, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 15),
                   Text(
                     "capture_desc_phone".tr(),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.grey, fontSize: 16, height: 1.4),
+                    // 7. Updated subtext to dark Navy-Grey (was Colors.grey)
+                    style: TextStyle(color: const Color(0xFF103856).withOpacity(0.7), fontSize: 16, height: 1.4),
                   ),
                   const SizedBox(height: 40),
                   Container(
@@ -460,28 +470,25 @@ class _PlanTabState extends State<PlanTab> {
                       children: [
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 16.0),
-                          child: Icon(Icons.phone_android, color: Colors.grey),
+                          // 8. Whiter icon inside the text field box
+                          child: Icon(Icons.phone_android, color: Colors.white70),
                         ),
                         Expanded(
                           child: TextField(
                             controller: _contactController,
                             keyboardType: TextInputType.phone,
                             keyboardAppearance: Brightness.dark,
-
-                            // 🔥 FIX 1: Kill the browser's native text overlays
                             enableSuggestions: false,
                             autocorrect: false,
-
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 20,
-                              // 🔥 FIX 2: Locks the Canvas text to the HTML DOM height
                               height: 1.15,
                             ),
-
                             decoration: InputDecoration(
                               hintText: "capture_hint".tr(),
-                              hintStyle: TextStyle(color: Colors.grey.withOpacity(0.5), fontSize: 16),
+                              // 9. Whiter hint text inside the text field box
+                              hintStyle: const TextStyle(color: Colors.white60, fontSize: 16),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(vertical: 20),
                             ),
@@ -502,6 +509,7 @@ class _PlanTabState extends State<PlanTab> {
                       style: const TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     onPressed: () async {
+                      // ... Keeps your exact existing Firebase and validation logic ...
                       FocusScope.of(context).unfocus();
 
                       String contactInfo = _contactController.text.replaceAll(RegExp(r'[^0-9]'), '');
@@ -703,61 +711,52 @@ class _PlanTabState extends State<PlanTab> {
 class _SmartPolicyCard extends StatefulWidget {
   final Map<String, dynamic> policy;
   final bool isFirstCard;
+  final int index; // <-- ADDED PROPERTY
 
-  const _SmartPolicyCard({required this.policy, required this.isFirstCard});
+  const _SmartPolicyCard({required this.policy, required this.isFirstCard, required this.index});
 
   @override
   State<_SmartPolicyCard> createState() => _SmartPolicyCardState();
 }
 
 class _SmartPolicyCardState extends State<_SmartPolicyCard> with SingleTickerProviderStateMixin {
+  // ... Keep your existing initState and animations exactly as they are ...
   bool _isRevealed = false;
-
-  // ANIMATION CONTROLLERS
   late AnimationController _nudgeController;
   late Animation<double> _slideAnimation;
   late Animation<double> _rotateAnimation;
 
   @override
+  @override
   void initState() {
     super.initState();
 
-    // Setup the Ghost Nudge animation physics
-    _nudgeController = AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 1200)
-    );
+    // Faster duration for the rapid jiggle
+    _nudgeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
 
-    // Slides the card 40 pixels right, holds, then elastic snaps back
+    // Rapid left/right shake sequence (5 movements)
     _slideAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 40.0).chain(CurveTween(curve: Curves.easeOut)), weight: 30),
-      TweenSequenceItem(tween: ConstantTween(40.0), weight: 20),
-      TweenSequenceItem(tween: Tween(begin: 40.0, end: 0.0).chain(CurveTween(curve: Curves.elasticOut)), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 15.0).chain(CurveTween(curve: Curves.easeInOutSine)), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 15.0, end: -15.0).chain(CurveTween(curve: Curves.easeInOutSine)), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: -15.0, end: 15.0).chain(CurveTween(curve: Curves.easeInOutSine)), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 15.0, end: -15.0).chain(CurveTween(curve: Curves.easeInOutSine)), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: -15.0, end: 15.0).chain(CurveTween(curve: Curves.easeInOutSine)), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 15.0, end: 0.0).chain(CurveTween(curve: Curves.easeInOutSine)), weight: 1),
     ]).animate(_nudgeController);
 
-    // Slightly tilts the card 0.05 radians to mimic a human dragging it
-    _rotateAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.05).chain(CurveTween(curve: Curves.easeOut)), weight: 30),
-      TweenSequenceItem(tween: ConstantTween(0.05), weight: 20),
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.0).chain(CurveTween(curve: Curves.elasticOut)), weight: 50),
-    ]).animate(_nudgeController);
+    // Keep it perfectly horizontal (no tilt during the fast jiggle)
+    _rotateAnimation = ConstantTween<double>(0.0).animate(_nudgeController);
 
-    // If it's the top card, check if we should play the animation
-    if (widget.isFirstCard) {
-      _triggerGhostNudge();
-    }
+    if (widget.isFirstCard) _triggerGhostNudge();
   }
 
   Future<void> _triggerGhostNudge() async {
     final prefs = await SharedPreferences.getInstance();
     final hasSeenTutorial = prefs.getBool('hasSeenSwipeTutorial') ?? false;
-
     if (!hasSeenTutorial) {
-      // Wait a moment for the screen to settle, then fire the animation
       await Future.delayed(const Duration(milliseconds: 800));
       if (mounted) {
         await _nudgeController.forward();
-        // Save to SharedPreferences so they never see it again
         await prefs.setBool('hasSeenSwipeTutorial', true);
       }
     }
@@ -771,6 +770,12 @@ class _SmartPolicyCardState extends State<_SmartPolicyCard> with SingleTickerPro
 
   @override
   Widget build(BuildContext context) {
+    // 👇 ALTERNATING COLOR LOGIC 👇
+    // Evens get Cyan, Odds get a smooth Grey-Blue
+    Color cardThemeColor = widget.index % 2 == 0
+        ? Colors.lightBlue // Updated to lightBlue
+            : const Color(0xFF64748B); // Muted Slate/Grey-Blue
+
     return RepaintBoundary(
       child: AnimatedBuilder(
         animation: _nudgeController,
@@ -791,26 +796,31 @@ class _SmartPolicyCardState extends State<_SmartPolicyCard> with SingleTickerPro
           },
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(25),
-              border: Border.all(color: widget.policy["color"].withOpacity(0.5), width: 2),
+              border: Border.all(color: cardThemeColor, width: 2.5), // Applies alternating border color
               boxShadow: [
-                BoxShadow(color: widget.policy["color"].withOpacity(0.2), blurRadius: 20, offset: const Offset(0, 10))
+                BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 8))
               ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // TOP HEADER
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 15),
                   decoration: BoxDecoration(
-                    color: widget.policy["color"],
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(23)),
+                    color: cardThemeColor, // Applies alternating background color to the header
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
                   ),
                   child: Text(
                     widget.policy['day'].toString().tr(),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
+                    style: const TextStyle(
+                      color: Colors.white, // White text against the colored header
+                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                    ),
                   ),
                 ),
                 Expanded(
@@ -821,12 +831,16 @@ class _SmartPolicyCardState extends State<_SmartPolicyCard> with SingleTickerPro
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(widget.policy['icon'], size: 70, color: widget.policy["color"]),
+                          Icon(widget.policy['icon'], size: 70, color: Colors.lightBlue),
                           const SizedBox(height: 20),
                           Text(
                             widget.policy['title'].toString().tr(),
                             textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900),
+                            style: const TextStyle(
+                              color: Color(0xFF103856),
+                              fontSize: 26,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                           const SizedBox(height: 20),
                           AnimatedCrossFade(
@@ -848,18 +862,18 @@ class _SmartPolicyCardState extends State<_SmartPolicyCard> with SingleTickerPro
                                     widget.policy['desc'].toString().tr(),
                                     textAlign: TextAlign.center,
                                     maxLines: 2,
-                                    style: const TextStyle(color: Colors.grey, fontSize: 18, height: 1.4),
+                                    style: TextStyle(color: Colors.grey.shade700, fontSize: 18, height: 1.4),
                                   ),
                                 ),
-                                const SizedBox(height: 15),
+                                const SizedBox(height: 5),
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.touch_app, color: widget.policy["color"], size: 22),
+                                    const Icon(Icons.touch_app, color: Color(0xFF53C8E5), size: 22),
                                     const SizedBox(width: 8),
                                     Text(
                                         context.locale.languageCode == 'he' ? "לחץ לקריאה" : "Tap to read",
-                                        style: TextStyle(color: widget.policy["color"], fontWeight: FontWeight.bold, fontSize: 16)
+                                        style: const TextStyle(color: Colors.lightBlue, fontWeight: FontWeight.bold, fontSize: 16)
                                     ),
                                   ],
                                 )
@@ -868,7 +882,7 @@ class _SmartPolicyCardState extends State<_SmartPolicyCard> with SingleTickerPro
                             secondChild: Text(
                               widget.policy['desc'].toString().tr(),
                               textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.white70, fontSize: 18, height: 1.5),
+                              style: TextStyle(color: Colors.grey.shade800, fontSize: 18, height: 1.5),
                             ),
                           ),
                         ],

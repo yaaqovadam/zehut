@@ -45,54 +45,102 @@ class MainShell extends WatchingWidget {
     ];
 
     return Scaffold(
-      backgroundColor: topAndBottomNavigationBarColor,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: topAndBottomNavigationBarColor,
-        elevation: 0,
-        title: Row(
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom:12.0),
-              child: Image.asset('assets/images/zahut-logo.png', height: 35),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              'app_name'.tr(),
-              style: TextStyle(
-                color: Theme.of(context).primaryColor,
-                fontWeight: FontWeight.w900,
-                fontSize: 26,
+        backgroundColor: Colors.transparent, // Let the flexible space handle the color
+        elevation: 0, // 👈 Turn off default symmetric shadow
+        surfaceTintColor: Colors.transparent,
+
+        // 👇 THE NEW CUSTOM SHADOW & BORDER 👇
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              bottom: BorderSide(
+                color: const Color(0xFF103856).withOpacity(0.3),
+                width: 2.0,
               ),
             ),
-          ],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.25),
+                offset: const Offset(0, 5), // 👈 Pushed exactly 5px downwards!
+                blurRadius: 14,
+              ),
+            ],
+          ),
+        ),
+
+        centerTitle: true,
+        leadingWidth: 80,
+        leading: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Image.asset('assets/images/zahut-logo.png', height: 35),
+        ),
+        title: Text(
+          'app_name'.tr(),
+          style: const TextStyle(
+            color: Color(0xFF103856),
+            fontWeight: FontWeight.w900,
+            fontSize: 26,
+          ),
         ),
         actions: [
-          IconButton(
-            icon: Icon(Icons.language, color: Theme.of(context).primaryColor),
-            onPressed: () {
+          InkWell(
+            onTap: () {
               if (context.locale.languageCode == 'he') {
                 context.setLocale(const Locale('en'));
               } else {
                 context.setLocale(const Locale('he'));
               }
             },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.language, color: Colors.lightBlue, size: 28),
+                  const SizedBox(height: 2),
+                  Text(
+                    context.locale.languageCode == 'he' ? 'English' : 'עברית',
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           )
         ],
       ),
       body: views[currentIndex],
-
-      // 👇 THE SURGICAL LIFT 👇
       bottomNavigationBar: Container(
-        color: topAndBottomNavigationBarColor,
-
-        // Injects the 20px ONLY on the Home Screen app
+        decoration: BoxDecoration(
+          color: Colors.white,
+          // 👇 Darker, thicker top line 👇
+          border: Border(
+            top: BorderSide(
+              color: const Color(0xFF103856).withOpacity(0.3), // Darker Navy
+              width: 2.0,
+            ),
+          ),
+          // 👇 Bigger, taller, darker shadow 👇
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.25), // Darker shadow (increased from 0.08)
+              offset: const Offset(0, -8), // Taller shadow (pushes further up the screen)
+              blurRadius: 24, // Wider, softer spread (increased from 12)
+            ),
+          ],
+        ),
         padding: EdgeInsets.only(bottom: customBottomPadding),
-
         child: MediaQuery.removePadding(
           context: context,
-          removeBottom: true, // Kills the engine's broken background math
+          removeBottom: true,
           child: BottomNavigationBar(
-            backgroundColor: topAndBottomNavigationBarColor,
+            backgroundColor: Colors.transparent,
             elevation: 0,
             type: BottomNavigationBarType.fixed,
             currentIndex: currentIndex,
@@ -103,6 +151,8 @@ class MainShell extends WatchingWidget {
               BottomNavigationBarItem(icon: const Icon(Icons.view_carousel), label: 'tab_100_days'.tr()),
               BottomNavigationBarItem(icon: const Icon(Icons.group), label: 'tab_action'.tr()),
             ],
+            selectedItemColor: Colors.lightBlue,
+            unselectedItemColor: const Color(0xFF103856).withOpacity(0.5),
           ),
         ),
       ),

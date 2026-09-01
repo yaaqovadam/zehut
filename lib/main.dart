@@ -1,9 +1,9 @@
 import 'dart:ui';
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart'; // 👈 ADDED kIsWeb IMPORT
 import 'package:google_fonts/google_fonts.dart';
 import 'package:watch_it/watch_it.dart';
 import 'firebase_options.dart';
@@ -11,35 +11,60 @@ import 'app_state.dart';
 import 'main_shell.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'admin/admin_feed_manager.dart';
+
+
+/*
+  final batch = FirebaseFirestore.instance.batch();
+  final collection = FirebaseFirestore.instance.collection('feeds');
+
+  for (int i = 0; i < fileNames.length; i++) {
+    final name = fileNames[i];
+    final docRef = collection.doc('clip_${i + 1}');
+    batch.set(docRef, {
+      'index': i,
+      'title': name.replaceAll('-', ' ').toUpperCase(),
+      'subtitle': 'צפו עד הסוף',
+      'url': '$baseUrl$name.mp4',
+      'thumb': '$baseUrl$name.jpg',
+      'isLocked': false,
+      'like_count': 100 + i,
+    });
+  }
+  await batch.commit();
+  print("🔥🔥🔥 ALL 26 VIDEOS WRITTEN TO FIRESTORE DIRECTLY FROM APP! 🔥🔥🔥");
+}
+*/
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // LOCK ORIENTATION TO PORTRAIT (Vertical Only)
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+
+  // await _seedDatabaseOnce(); // 👈 Add this line here just onceawait _seedDatabaseOnce(); // 👈 Add this line here just once
+  // 👈 THE FIX: Stop web from crashing by ignoring mobile-only UI commands
+  if (!kIsWeb) {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
+
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.immersiveSticky,
+    );
+  }
+
   await EasyLocalization.ensureInitialized();
-
-
-
-// Call this in your initState() or main() function
-  SystemChrome.setEnabledSystemUIMode(
-    SystemUiMode.immersiveSticky,
-  );
-
-await   setupLocator(); // Initialize get_it / watch_it
-
-
+  await setupLocator(); // Initialize get_it / watch_it
 
   runApp(
     EasyLocalization(
       supportedLocales: const [Locale('he'), Locale('en')],
       path: 'assets/translations',
       fallbackLocale: const Locale('he'),
-      startLocale: const Locale('he'), // Start in Hebrew for the pitch to Moshe
+      startLocale: const Locale('he'),
       child: const ZehutApp(),
     ),
   );
@@ -53,7 +78,6 @@ class ZehutApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Zehut 2026',
-      // NEW: Force Flutter Web to allow mouse and trackpad swiping
       scrollBehavior: const MaterialScrollBehavior().copyWith(
         dragDevices: {
           PointerDeviceKind.mouse,
@@ -63,40 +87,61 @@ class ZehutApp extends StatelessWidget {
       ),
       localizationsDelegates: context.localizationDelegates,
       supportedLocales: context.supportedLocales,
-      locale: context.locale, // Automatically handles RTL flipping!
-
-      // The Post-Oct 7th Vibe: Deep Slate & Amber
+      locale: context.locale,
       theme: ThemeData(
-        brightness: Brightness.dark,
-        // 1. Force the entire app background to your Deep Blue
-        // scaffoldBackgroundColor: const Color(0xFF1f1a54),
-        scaffoldBackgroundColor: Color(0xff010126),
-        primaryColor: const Color(0xFFF59E0B),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFF59E0B),
-          secondary: Color(0xFF38BDF8),
-          surface: Color(0xFF1E293B), // Leaves the cards Slate Gray so they pop
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: Colors.white,
+        primaryColor: Colors.lightBlue,
+
+        colorScheme: const ColorScheme.light(
+          primary: Colors.lightBlue,
+          secondary: Color(0xFFF59E0B),
+          surface: Colors.white,
+          onSurface: Color(0xFF103856),
         ),
 
-        // 2. THE APPBAR FIX
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF1f1a54),
+        appBarTheme: AppBarTheme(
+          backgroundColor: Colors.white,
+          elevation: 4,
+          shadowColor: Colors.black.withOpacity(0.15),
+          surfaceTintColor: Colors.transparent,
+          shape: Border(
+            bottom: BorderSide(
+              color: const Color(0xFF103856).withOpacity(0.1),
+              width: 1,
+            ),
+          ),
+          iconTheme: const IconThemeData(color: Colors.lightBlue),
+          titleTextStyle: const TextStyle(
+            color: Color(0xFF103856),
+            fontWeight: FontWeight.w900,
+            fontSize: 26,
+          ),
+        ),
+
+        bottomNavigationBarTheme: BottomNavigationBarThemeData(
+          backgroundColor: Colors.white,
           elevation: 0,
-          scrolledUnderElevation: 0, // STOPS THE COLOR FROM CHANGING ON SCROLL!
-          surfaceTintColor: Colors.transparent, // Kills the Material 3 tint
-        ),
-
-        // 3. THE BOTTOM BAR FIX
-        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          backgroundColor: Color(0xFF1f1a54),
-          elevation: 0, // Removes the top shadow that alters the color
-          selectedItemColor: Color(0xFFF59E0B),
-          unselectedItemColor: Colors.grey,
+          selectedItemColor: Colors.lightBlue,
+          unselectedItemColor: const Color(0xFF103856).withOpacity(0.6),
           type: BottomNavigationBarType.fixed,
         ),
 
         textTheme: GoogleFonts.heeboTextTheme(
-          ThemeData.dark().textTheme,
+          ThemeData.light().textTheme.apply(
+            bodyColor: const Color(0xFF103856),
+            displayColor: const Color(0xFF103856),
+          ),
+        ),
+
+        iconTheme: const IconThemeData(
+          color: Colors.lightBlue,
+        ),
+
+        sliderTheme: SliderThemeData(
+          activeTrackColor: Colors.lightBlue,
+          thumbColor: Colors.lightBlue,
+          inactiveTrackColor: const Color(0xFF103856).withOpacity(0.1),
         ),
       ),
       home: const MainShell(),

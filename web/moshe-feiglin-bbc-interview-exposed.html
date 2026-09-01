@@ -1,39 +1,85 @@
 <!DOCTYPE html>
 <html lang="he">
 <head>
+    <base href="/">
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+    <!-- THE BULLETPROOF CHAMELEON FIX FOR SAFARI & CHROME -->
+    <meta name="color-scheme" content="dark">
+    <meta name="theme-color" content="#010126" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#010126" media="(prefers-color-scheme: dark)">
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Zehut">
+
     <title>פייגלין מפרק את ה-BBC בשידור חי</title>
 
-    <!-- WhatsApp & Facebook Open Graph Tags -->
+    <!-- WHATSAPP & FACEBOOK OPEN GRAPH TAGS -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://gamfeiglintzadak.co.il/moshe-feiglin-bbc-interview-exposed.html">
     <meta property="og:title" content="פייגלין מפרק את ה-BBC בשידור חי (צפו)">
     <meta property="og:description" content="המראיין ניסה להאשים את ישראל, אבל לא ציפה לתשובה הזו. האמת נחשפת.">
 
-    <!-- Thumbnail Image -->
     <meta property="og:image" content="https://gamfeiglintzadak.co.il/images/moshe-feiglin-bbc-interview-exposed.jpg">
-
-    <!-- WhatsApp Preview Optimization -->
     <meta property="og:image:type" content="image/jpeg">
     <meta property="og:image:width" content="1080">
     <meta property="og:image:height" content="1080">
 
-    <meta property="og:type" content="website">
-
-    <!-- Twitter Card Tags -->
+    <!-- TWITTER CARDS -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="פייגלין מפרק את ה-BBC בשידור חי">
     <meta name="twitter:description" content="המראיין ניסה להאשים את ישראל, אבל לא ציפה לתשובה הזו.">
     <meta name="twitter:image" content="https://gamfeiglintzadak.co.il/images/moshe-feiglin-bbc-interview-exposed.jpg">
-
+    <meta property="og:image:secure_url" content="https://gamfeiglintzadak.co.il/images/moshe-feiglin-bbc-interview-exposed.jpg">
+    <meta name="video-index" content="5">
     <style>
-        body { background-color: #000; color: #fff; text-align: center; margin-top: 20%; font-family: sans-serif; }
+        body, html {
+          margin: 0;
+          padding: 0;
+          width: 100vw;
+          height: 100vh;
+          background-color: #010126;
+          overflow: hidden;
+        }
+
+        flt-text-field, input, textarea {
+          background-color: transparent !important;
+          color: white !important;
+        }
+
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus {
+          -webkit-box-shadow: 0 0 0 1000px #1E293B inset !important;
+          -webkit-text-fill-color: white !important;
+        }
     </style>
 
-    <!-- Magic Redirect: Teleports directly to Video Index 4 -->
+    <!-- THE MAGIC TRICK: Sets URL state to v=5 seamlessly for index 5 -->
     <script>
-        window.location.href = "/?v=5";
+<!--        window.embeddedVideoIndex=5-->
     </script>
 </head>
 <body>
-<h2>פותח את הסרטון...</h2>
+<script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for(let registration of registrations) {
+          registration.unregister();
+        }
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then(function(names) {
+        for (let name of names) {
+          caches.delete(name);
+        }
+      });
+    }
+</script>
+<script src="flutter_bootstrap.js?v=134" async></script>
 </body>
 </html>
