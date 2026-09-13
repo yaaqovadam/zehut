@@ -1,85 +1,64 @@
 <!DOCTYPE html>
 <html lang="he">
 <head>
-    <base href="/">
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <base href="/">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
-    <!-- THE BULLETPROOF CHAMELEON FIX FOR SAFARI & CHROME -->
-    <meta name="color-scheme" content="dark">
-    <meta name="theme-color" content="#010126" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#010126" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#010126" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#010126" media="(prefers-color-scheme: dark)">
 
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Zehut">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Zehut">
 
-    <title>פייגלין מפרק את ה-BBC בשידור חי</title>
+  <title>הראוון המלא ב-BBC (צפו)</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="favicon.png"/>
 
-    <!-- WHATSAPP & FACEBOOK OPEN GRAPH TAGS -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://gamfeiglintzadak.co.il/moshe-feiglin-bbc-interview-exposed.html">
-    <meta property="og:title" content="פייגלין מפרק את ה-BBC בשידור חי (צפו)">
-    <meta property="og:description" content="המראיין ניסה להאשים את ישראל, אבל לא ציפה לתשובה הזו. האמת נחשפת.">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icons/Icon-512.png">
+  <!-- SCHEMA.ORG TAG (Separated so it doesn't break OG scraping) -->
+  <meta itemprop="image" content="https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/moshe-feiglin-bbc-interview-exposed.jpg">
 
-    <meta property="og:image" content="https://gamfeiglintzadak.co.il/images/moshe-feiglin-bbc-interview-exposed.jpg">
-    <meta property="og:image:type" content="image/jpeg">
-    <meta property="og:image:width" content="1080">
-    <meta property="og:image:height" content="1080">
+  <!-- OPEN GRAPH / FACEBOOK / WHATSAPP TAGS -->
+  <meta name="video-id" content="moshe-feiglin-bbc-interview-exposed">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://gamfeiglintzadak.co.il/moshe-feiglin-bbc-interview-exposed.html">
+  <meta property="og:title" content="הראוון המלא ב-BBC (צפו)">
+  <meta property="og:description" content="צפו לפני הכל כדי להבין את התמונה המלאה.">
+  <meta property="og:image" content="https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/moshe-feiglin-bbc-interview-exposed.jpg">
+  <meta property="og:image:secure_url" content="https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/moshe-feiglin-bbc-interview-exposed.jpg">
+  <meta property="og:image:type" content="image/jpeg">
 
-    <!-- TWITTER CARDS -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="פייגלין מפרק את ה-BBC בשידור חי">
-    <meta name="twitter:description" content="המראיין ניסה להאשים את ישראל, אבל לא ציפה לתשובה הזו.">
-    <meta name="twitter:image" content="https://gamfeiglintzadak.co.il/images/moshe-feiglin-bbc-interview-exposed.jpg">
-    <meta property="og:image:secure_url" content="https://gamfeiglintzadak.co.il/images/moshe-feiglin-bbc-interview-exposed.jpg">
-    <meta name="video-index" content="5">
-    <style>
-        body, html {
-          margin: 0;
-          padding: 0;
-          width: 100vw;
-          height: 100vh;
-          background-color: #010126;
-          overflow: hidden;
-        }
+  <!-- TWITTER TAGS -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://gamfeiglintzadak.co.il/moshe-feiglin-bbc-interview-exposed.html">
+  <meta name="twitter:title" content="הראוון המלא ב-BBC (צפו)">
+  <meta name="twitter:description" content="צפו לפני הכל כדי להבין את התמונה המלאה.">
+  <meta name="twitter:image" content="https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/moshe-feiglin-bbc-interview-exposed.jpg">
 
-        flt-text-field, input, textarea {
-          background-color: transparent !important;
-          color: white !important;
-        }
-
-        input:-webkit-autofill,
-        input:-webkit-autofill:hover,
-        input:-webkit-autofill:focus {
-          -webkit-box-shadow: 0 0 0 1000px #1E293B inset !important;
-          -webkit-text-fill-color: white !important;
-        }
-    </style>
-
-    <!-- THE MAGIC TRICK: Sets URL state to v=5 seamlessly for index 5 -->
-    <script>
-<!--        window.embeddedVideoIndex=5-->
-    </script>
+  <style>
+    body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; background-color: #ffffff; overflow: hidden; }
+    flt-text-field, input, textarea { background-color: transparent !important; color: white !important; }
+    input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus { -webkit-box-shadow: 0 0 0 1000px #1E293B inset !important; -webkit-text-fill-color: white !important; }
+  </style>
 </head>
 <body>
 <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        for(let registration of registrations) {
-          registration.unregister();
-        }
-      });
-    }
-    if ('caches' in window) {
-      caches.keys().then(function(names) {
-        for (let name of names) {
-          caches.delete(name);
-        }
-      });
-    }
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+      for(let registration of registrations) { registration.unregister(); }
+    });
+  }
+  if ('caches' in window) {
+    caches.keys().then(function(names) {
+      for (let name of names) { caches.delete(name); }
+    });
+  }
 </script>
-<script src="flutter_bootstrap.js?v=134" async></script>
+<script src="flutter_bootstrap.js?v253" async></script>
 </body>
 </html>

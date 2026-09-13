@@ -10,6 +10,9 @@ import 'dart:math';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:ui' as ui;
+// import 'dart:js_interop'; // 🎯 NEW IMPORT
+import 'dart:html' as html;
+import 'dart:js' as js;
 
 class PlanTab extends StatefulWidget {
   const PlanTab({super.key});
@@ -29,6 +32,9 @@ class _PlanTabState extends State<PlanTab> {
   int _score = 0;
   final List<bool> _swipeHistory = [];
 
+  // @JS('triggerAppInstall')
+  // external void triggerAppInstall(); // 🎯 BINDS DART TO YOUR JS FUNCTION
+
   final List<Map<String, dynamic>> _policies = [
     {"day": "pol_1_day", "title": "pol_1_title", "desc": "pol_1_desc", "icon": Icons.military_tech, "color": const Color(0xFFB91C1C)},
     {"day": "pol_2_day", "title": "pol_2_title", "desc": "pol_2_desc", "icon": Icons.shield, "color": const Color(0xFFF59E0B)},
@@ -39,125 +45,50 @@ class _PlanTabState extends State<PlanTab> {
     {"day": "pol_7_day", "title": "pol_7_title", "desc": "pol_7_desc", "icon": Icons.warning_amber_rounded, "color": const Color(0xFFF97316)},
     {"day": "pol_8_day", "title": "pol_8_title", "desc": "pol_8_desc", "icon": Icons.gavel, "color": const Color(0xFFE11D48)},
   ];
+// --- ADD THIS RIGHT HERE IN _PlanTabState ---
+
+  // ---------------------------------------------
+
+// 👉 ADD IT RIGHT HERE, inside _PlanTabState
+  @override
+  void initState() {
+    super.initState();
+    isFinished = di<AppState>().isLoggedIn.value;
+   // if (isFinished) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(seconds: 3), () {
+          // _triggerInstallPrompt();
+        });
+      });
+  //  }
+
+  }
+
   @override
   void dispose() {
     controller.dispose();
     _contactController.dispose();
     super.dispose();
   }
-
-  Future<void> _showA2HSBottomSheet(BuildContext parentContext) async {
-    if (di<AppState>().a2hsCount.value > 0) {
-      debugPrint("Skipping A2HS prompt. Count is ${di<AppState>().a2hsCount.value}");
-      return;
-    }
-
-    String? phone = di<AppState>().userPhone.value;
-    if (phone != null && phone.isNotEmpty) {
-      await di<AppState>().markA2HSPrompted(phone);
-    }
-
-    if (!parentContext.mounted) return;
-
-    showModalBottomSheet(
-      context: parentContext,
-      isScrollControlled: true,
-      barrierColor: Colors.black.withOpacity(0.85),
-      backgroundColor: const Color(0xFF0F172A),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-      ),
-      builder: (BuildContext modalContext) {
-        return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-            child: Padding(
-              padding: const EdgeInsets.all(30.0),
-              child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.network(
-                    'icons/Icon-192.png',
-                    width: 72,
-                    height: 72,
-                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.shield, size: 72, color: Colors.blueAccent),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                "התנתק מהדפדפן. הישאר מחובר לרשת.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                "הוסף את 'זהות' למסך הבית שלך לגישה מהירה, מוצפנת וללא צנזורה - בדיוק כמו אפליקציה רגילה.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 15, height: 1.4),
-              ),
-              const SizedBox(height: 30),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.amber.withOpacity(0.3)),
-                ),
-                child: Column(
-                  children: const [
-                    Row(
-                      children: [
-                        Icon(Icons.ios_share, color: Colors.amber, size: 22),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            "1. לחץ על כפתור השיתוף (Share) בדפדפן",
-                            style: TextStyle(color: Colors.white, fontSize: 14),
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Icon(Icons.add_box_outlined, color: Colors.amber, size: 22),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            "2. בחר 'אל מסך הבית' (Add to Home Screen)",
-                            style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 25),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                ),
-                child: const Text(
-                  "הבנתי, המשך לאפליקציה",
-                  style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                onPressed: () => Navigator.pop(modalContext),
-              ),
-            ],
-          ),
-            ),
-        );
-      },
-    );
-  }
+  //
+  // void _triggerInstallPrompt() {
+  //   if (!mounted) return;
+  //
+  //   try {
+  //     String? phone = di<AppState>().userPhone.value;
+  //     if (phone != null && phone.isNotEmpty) {
+  //       di<AppState>().markA2HSPrompted(phone);
+  //     }
+  //   } catch (e) {
+  //     debugPrint("A2HS tracking error: $e");
+  //   }
+  //
+  //   if (kIsWeb) {
+  //     // 🎯 THE BULLETPROOF WAY: Dispatch a custom event.
+  //     // This prevents Dart from crashing if the JS async function behaves unexpectedly.
+  //     html.window.dispatchEvent(html.CustomEvent('showInstallPrompt'));
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -189,10 +120,14 @@ class _PlanTabState extends State<PlanTab> {
                             padding: EdgeInsets.zero,
                             icon: const Icon(Icons.close, color: Colors.grey, size: 30),
                             onPressed: () {
-                              FocusScope.of(context).unfocus();
-                              setState(() => isFinished = false);
-                              Future.delayed(const Duration(milliseconds: 50), () {
-                                if (_swipeHistory.isNotEmpty) controller.undo();
+                              // 🎯 FIX 2: Clear the state and return to the beginning of the quiz
+                              setState(() {
+                                isFinished = false;
+                                _score = 0;
+                                _swipeHistory.clear();
+                                _contactController.clear();
+                                _pendingPhone = null;
+                                _authCode = null;
                               });
                             },
                           ),
@@ -204,14 +139,9 @@ class _PlanTabState extends State<PlanTab> {
                 Expanded(
                   child: Stack(
                     children: [
-                      Offstage(
-                        offstage: isFinished,
-                        child: _buildSwiper(),
-                      ),
-                      if (showCaptureWall)
-                        _buildCaptureScreen(),
-                      if (isFinished && isLoggedIn)
-                        _buildEndScreen(),
+                      Offstage(offstage: isFinished, child: _buildSwiper()),
+                      if (showCaptureWall) _buildCaptureScreen(),
+                      if (isFinished && isLoggedIn) _buildEndScreen(),
                     ],
                   ),
                 ),
@@ -235,6 +165,10 @@ class _PlanTabState extends State<PlanTab> {
               key: _swiperKey,
               cardsCount: _policies.length,
               isLoop: false,
+              // 🎯 ADD THESE 3 LINES TO TIGHTEN THE PHYSICS
+              maxAngle: 15, // Decreased from 30. Less tilt makes the card feel less floaty.
+              threshold: 30, // Decreased from 50. Requires less physical drag distance to trigger the swipe.
+              duration: const Duration(milliseconds: 200), // Snappier fly-away animation when released.
               allowedSwipeDirection: const AllowedSwipeDirection.all(),
               numberOfCardsDisplayed: 3,
               backCardOffset: const Offset(0, 30),
@@ -305,7 +239,7 @@ class _PlanTabState extends State<PlanTab> {
               ],
             ),
           ),
-        )
+        ),
       ],
     );
   }
@@ -331,14 +265,14 @@ class _PlanTabState extends State<PlanTab> {
                 setState(() {
                   _pendingPhone = null;
                   _authCode = null;
+                  isFinished = true; // 🎯 Ensure they are marked as finished
                 });
 
                 await di<AppState>().savePhone(verifiedPhone);
 
-                Future.delayed(const Duration(milliseconds: 400), () {
-                  if (parentContext.mounted) {
-                    _showA2HSBottomSheet(parentContext);
-                  }
+                // 🎯 NEW USER TRIGGER: Fires 3 seconds after they hit the score screen
+                Future.delayed(const Duration(seconds: 3), () {
+                  // _triggerInstallPrompt();
                 });
               });
             }
@@ -356,14 +290,14 @@ class _PlanTabState extends State<PlanTab> {
                   Icon(Icons.lock_outline, size: 80, color: Theme.of(context).primaryColor),
                   const SizedBox(height: 20),
                   Text(
-                    "verify_secure_title".tr(),
+                    "verifyAccountTitle".tr(),
                     textAlign: TextAlign.center,
                     // 2. Updated Title to Zehut Navy so it's visible on white
                     style: const TextStyle(color: Color(0xFF103856), fontSize: 32, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 15),
                   Text(
-                    "verify_secure_desc".tr(),
+                    "tapToAuthenticate".tr(),
                     textAlign: TextAlign.center,
                     // 3. Updated Subtitle to dark Navy-Grey
                     style: TextStyle(color: const Color(0xFF103856).withOpacity(0.7), fontSize: 16, height: 1.4),
@@ -380,30 +314,38 @@ class _PlanTabState extends State<PlanTab> {
                           padding: const EdgeInsets.symmetric(vertical: 18),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                         ),
-                        icon: Icon(
-                          isLocked ? Icons.timer : Icons.chat_bubble_outline,
-                          color: !isLocked ? const Color(0xff010126) : Colors.white,
-                        ),
+                        icon: Icon(isLocked ? Icons.timer : Icons.chat_bubble_outline, color: !isLocked ? const Color(0xff010126) : Colors.white),
                         label: Text(
-                          isLocked
-                              ? "${'verify_locked_btn'.tr()}${secondsLeft.toString().padLeft(2, '0')}"
-                              : "verify_whatsapp_btn".tr(),
+                          isLocked ? "${'verify_locked_btn'.tr()}${secondsLeft.toString().padLeft(2, '0')}" : "verify_whatsapp_btn".tr(),
                           style: TextStyle(color: !isLocked ? const Color(0xff010126) : Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                         ),
-                        onPressed: isLocked ? () {
-                          _showTopToast(context, "verify_toast_locked".tr());
-                        } : () async {
+                        onPressed: isLocked
+                            ? () {
+                                _showTopToast(context, "verify_toast_locked".tr());
+                              }
+                            : () async {
                           di<AppState>().registerAuthAttempt();
                           const burnerPhone = "972525822005";
                           String instruction = "whatsappVerifyMsg".tr();
                           String whatsappMessage = "$_authCode $instruction";
                           String encodedMessage = Uri.encodeComponent(whatsappMessage);
 
-                          final url = Uri.parse("https://wa.me/$burnerPhone?text=$encodedMessage");
-                          if (await canLaunchUrl(url)) {
-                            await launchUrl(url, mode: LaunchMode.externalApplication);
+                          if (kIsWeb) {
+                            // 🎯 THE DOM WAY: Native scheme + _self
+                            // Hands off to the OS instantly. The Flutter app stays alive in the current tab.
+                            final anchor = html.AnchorElement(href: "whatsapp://send?phone=$burnerPhone&text=$encodedMessage")
+                              ..target = '_self'
+                              ..style.display = 'none';
+
+                            html.document.body?.append(anchor);
+                            anchor.click();
+                            anchor.remove();
+                          } else {
+                            // Native app fallback
+                            final nativeUrl = Uri.parse("whatsapp://send?phone=$burnerPhone&text=$encodedMessage");
+                            launchUrl(nativeUrl, mode: LaunchMode.externalApplication);
                           }
-                        },
+                        }
                       );
                     },
                   ),
@@ -462,10 +404,7 @@ class _PlanTabState extends State<PlanTab> {
                   ),
                   const SizedBox(height: 40),
                   Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
+                    decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(15)),
                     child: Row(
                       children: [
                         const Padding(
@@ -480,11 +419,7 @@ class _PlanTabState extends State<PlanTab> {
                             keyboardAppearance: Brightness.dark,
                             enableSuggestions: false,
                             autocorrect: false,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              height: 1.15,
-                            ),
+                            style: const TextStyle(color: Colors.white, fontSize: 20, height: 1.15),
                             decoration: InputDecoration(
                               hintText: "capture_hint".tr(),
                               // 9. Whiter hint text inside the text field box
@@ -517,7 +452,11 @@ class _PlanTabState extends State<PlanTab> {
                       if (contactInfo.length < 9) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text("capture_error_phone".tr(), textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            content: Text(
+                              "capture_error_phone".tr(),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
                             backgroundColor: Colors.red,
                             duration: const Duration(seconds: 2),
                           ),
@@ -544,11 +483,7 @@ class _PlanTabState extends State<PlanTab> {
                         }
 
                         if (alreadyVerified) {
-                          await FirebaseFirestore.instance.collection('citizens').doc(contactInfo).set({
-                            'match_percentage': matchPercentage,
-                            'source': 'swipe_quiz_tab3',
-                            'timestamp_quiz': FieldValue.serverTimestamp(),
-                          }, SetOptions(merge: true));
+                          await FirebaseFirestore.instance.collection('citizens').doc(contactInfo).set({'match_percentage': matchPercentage, 'source': 'swipe_quiz_tab3', 'timestamp_quiz': FieldValue.serverTimestamp()}, SetOptions(merge: true));
 
                           await di<AppState>().savePhone(contactInfo);
 
@@ -558,25 +493,16 @@ class _PlanTabState extends State<PlanTab> {
                             isFinished = true;
                           });
 
-                          Future.delayed(const Duration(milliseconds: 400), () {
-                            if (parentContext.mounted) {
-                              _showA2HSBottomSheet(parentContext);
-                            }
+                          // 🎯 FIX: Call the new method, no parentContext needed
+                          Future.delayed(const Duration(seconds: 3), () {
+                            // _triggerInstallPrompt();
                           });
+
                           return;
                         }
 
                         String newAuthCode = generateSecureToken();
-                        await FirebaseFirestore.instance.collection('citizens').doc(contactInfo).set({
-                          'phone': contactInfo,
-                          'uid': masterUid,
-                          'match_percentage': matchPercentage,
-                          'source': 'swipe_quiz_tab3',
-                          'timestamp_quiz': FieldValue.serverTimestamp(),
-                          'auth_code': newAuthCode,
-                          'verified': false,
-                          'a2hs_count': currentA2hs,
-                        }, SetOptions(merge: true));
+                        await FirebaseFirestore.instance.collection('citizens').doc(contactInfo).set({'phone': contactInfo, 'uid': masterUid, 'match_percentage': matchPercentage, 'source': 'swipe_quiz_tab3', 'timestamp_quiz': FieldValue.serverTimestamp(), 'auth_code': newAuthCode, 'verified': false, 'a2hs_count': currentA2hs}, SetOptions(merge: true));
 
                         setState(() {
                           _pendingPhone = contactInfo;
@@ -596,18 +522,17 @@ class _PlanTabState extends State<PlanTab> {
     );
   }
 
-
   void _showTopToast(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.red,
         behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.only(
-          bottom: MediaQuery.of(context).size.height - 150,
-          left: 20,
-          right: 20,
-        ),
+        margin: EdgeInsets.only(bottom: MediaQuery.of(context).size.height - 150, left: 20, right: 20),
         duration: const Duration(seconds: 3),
       ),
     );
@@ -629,80 +554,97 @@ class _PlanTabState extends State<PlanTab> {
   }
 
   Widget _buildEndScreen() {
-    String titleKey;
-    String descKey;
-    Color resultColor;
+    String? phone = di<AppState>().userPhone.value;
+    if (phone == null) return const SizedBox.shrink();
 
-    int matchPercentage = (_score / _policies.length * 100).round();
+    return StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance.collection('citizens').doc(phone).snapshots(),
+        builder: (context, snapshot) {
+          int matchPercentage = 0;
 
-    if (matchPercentage >= 70) {
-      titleKey = "result_high_title";
-      descKey = "result_high_desc";
-      resultColor = Colors.green;
-    } else if (matchPercentage >= 40) {
-      titleKey = "result_med_title";
-      descKey = "result_med_desc";
-      resultColor = Theme.of(context).primaryColor;
-    } else {
-      titleKey = "result_low_title";
-      descKey = "result_low_desc";
-      resultColor = Colors.red;
-    }
+          // 🎯 PULLS DIRECTLY FROM FIREBASE (Overrides local score!)
+          if (snapshot.hasData && snapshot.data!.exists) {
+            final data = snapshot.data!.data() as Map<String, dynamic>?;
+            matchPercentage = data?['match_percentage'] ?? 0;
+          } else {
+            matchPercentage = (_score / _policies.length * 100).round();
+          }
 
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(35),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: resultColor, width: 5),
+          String titleKey;
+          String descKey;
+          Color resultColor;
+
+          if (matchPercentage >= 70) {
+            titleKey = "result_high_title";
+            descKey = "result_high_desc";
+            resultColor = Colors.green;
+          } else if (matchPercentage >= 40) {
+            titleKey = "result_med_title";
+            descKey = "result_med_desc";
+            resultColor = Theme.of(context).primaryColor;
+          } else {
+            titleKey = "result_low_title";
+            descKey = "result_low_desc";
+            resultColor = Colors.red;
+          }
+
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(35),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: resultColor, width: 5),
+                  ),
+                  child: Text(
+                    "$matchPercentage%",
+                    style: TextStyle(color: resultColor, fontSize: 48, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text("match_score".tr(), style: const TextStyle(color: Colors.grey, fontSize: 18)),
+                const SizedBox(height: 10),
+                Text(
+                  titleKey.tr(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  child: Text(
+                    descKey.tr(),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.grey, fontSize: 18),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      isFinished = false;
+                      _score = 0;
+                      _swipeHistory.clear();
+                      _contactController.clear();
+                    });
+                  },
+                  icon: const Icon(Icons.refresh, color: Colors.black),
+                  label: Text("btn_review".tr(), style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).primaryColor,
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                  ),
+                )
+              ],
             ),
-            child: Text(
-              "$matchPercentage%",
-              style: TextStyle(color: resultColor, fontSize: 48, fontWeight: FontWeight.bold),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text("match_score".tr(), style: const TextStyle(color: Colors.grey, fontSize: 18)),
-          const SizedBox(height: 10),
-          Text(
-            titleKey.tr(),
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0),
-            child: Text(
-              descKey.tr(),
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey, fontSize: 18),
-            ),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: () {
-              setState(() {
-                isFinished = false;
-                _score = 0;
-                _swipeHistory.clear();
-                _contactController.clear();
-              });
-            },
-            icon: const Icon(Icons.refresh, color: Colors.black),
-            label: Text("btn_review".tr(), style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
-              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-            ),
-          )
-        ],
-      ),
+          );
+        }
     );
   }
 }
+
 // ==========================================
 // 🔥 THE NEW SMART POLICY CARD WIDGET
 // ==========================================
@@ -726,7 +668,7 @@ class _SmartPolicyCardState extends State<_SmartPolicyCard> with SingleTickerPro
   late Animation<double> _slideAnimation;
   late Animation<double> _rotateAnimation;
 
-  @override
+
   @override
   void initState() {
     super.initState();
@@ -773,8 +715,9 @@ class _SmartPolicyCardState extends State<_SmartPolicyCard> with SingleTickerPro
     // 👇 ALTERNATING COLOR LOGIC 👇
     // Evens get Cyan, Odds get a smooth Grey-Blue
     Color cardThemeColor = widget.index % 2 == 0
-        ? Colors.lightBlue // Updated to lightBlue
-            : const Color(0xFF64748B); // Muted Slate/Grey-Blue
+        ? Colors
+              .lightBlue // Updated to lightBlue
+        : const Color(0xFF64748B); // Muted Slate/Grey-Blue
 
     return RepaintBoundary(
       child: AnimatedBuilder(
@@ -782,10 +725,7 @@ class _SmartPolicyCardState extends State<_SmartPolicyCard> with SingleTickerPro
         builder: (context, child) {
           return Transform.translate(
             offset: Offset(_slideAnimation.value, 0),
-            child: Transform.rotate(
-              angle: _rotateAnimation.value,
-              child: child,
-            ),
+            child: Transform.rotate(angle: _rotateAnimation.value, child: child),
           );
         },
         child: GestureDetector(
@@ -799,9 +739,7 @@ class _SmartPolicyCardState extends State<_SmartPolicyCard> with SingleTickerPro
               color: Colors.white,
               borderRadius: BorderRadius.circular(25),
               border: Border.all(color: cardThemeColor, width: 2.5), // Applies alternating border color
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 8))
-              ],
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 8))],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -836,11 +774,7 @@ class _SmartPolicyCardState extends State<_SmartPolicyCard> with SingleTickerPro
                           Text(
                             widget.policy['title'].toString().tr(),
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Color(0xFF103856),
-                              fontSize: 26,
-                              fontWeight: FontWeight.w900,
-                            ),
+                            style: const TextStyle(color: Color(0xFF103856), fontSize: 26, fontWeight: FontWeight.w900),
                           ),
                           const SizedBox(height: 20),
                           AnimatedCrossFade(
@@ -850,12 +784,7 @@ class _SmartPolicyCardState extends State<_SmartPolicyCard> with SingleTickerPro
                               children: [
                                 ShaderMask(
                                   shaderCallback: (Rect bounds) {
-                                    return const LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [Colors.white, Colors.transparent],
-                                      stops: [0.3, 1.0],
-                                    ).createShader(bounds);
+                                    return const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.white, Colors.transparent], stops: [0.3, 1.0]).createShader(bounds);
                                   },
                                   blendMode: BlendMode.dstIn,
                                   child: Text(
@@ -872,11 +801,11 @@ class _SmartPolicyCardState extends State<_SmartPolicyCard> with SingleTickerPro
                                     const Icon(Icons.touch_app, color: Color(0xFF53C8E5), size: 22),
                                     const SizedBox(width: 8),
                                     Text(
-                                        context.locale.languageCode == 'he' ? "לחץ לקריאה" : "Tap to read",
-                                        style: const TextStyle(color: Colors.lightBlue, fontWeight: FontWeight.bold, fontSize: 16)
+                                      context.locale.languageCode == 'he' ? "לחץ לקריאה" : "Tap to read",
+                                      style: const TextStyle(color: Colors.lightBlue, fontWeight: FontWeight.bold, fontSize: 16),
                                     ),
                                   ],
-                                )
+                                ),
                               ],
                             ),
                             secondChild: Text(
@@ -889,7 +818,7 @@ class _SmartPolicyCardState extends State<_SmartPolicyCard> with SingleTickerPro
                       ),
                     ),
                   ),
-                )
+                ),
               ],
             ),
           ),

@@ -2,7 +2,7 @@
   "app_name": "Zehut 2026",
   "tab_feed": "The Feed",
   "tab_vanguard": "Vanguard",
-  "tab_100_days": "100 Days",
+  "tab_100_days": "The Plan",
   "tab_action": "Mobilize",
 
   "plan_title": "Zehut's 8 Point Plan",
@@ -47,6 +47,7 @@
 
   "result_high_title": "You are a Sovereign",
   "result_high_desc": "You align perfectly with Zehut. It's time to take our country back.",
+
   "result_med_title": "We Have Common Ground",
   "result_med_desc": "You agree with the core of our vision. Read the manifesto to see the rest.",
   "result_low_title": "Stuck in the Conceptzia",
@@ -90,7 +91,7 @@
   "sound_btn": "Sound",
   "secure_verification_title": "Secure Verification",
   "secure_verification_desc": "Tap below to verify your identity via WhatsApp and reveal your Sovereign Match.",
-  "capture_error_phone": "Please enter a valid phone number",
+
   "desktop_sheet_title": "Add App to Desktop",
   "desktop_sheet_desc": "Install this app on your home screen for quick and easy access anytime.",
   "desktop_sheet_btn": "Got It",
@@ -101,5 +102,39 @@
   "tutorial_swipe_up": "Swipe up for the next video",
   "tutorial_video_starts_shortly": "(The video will start shortly)",
   "play_btn": "Play",
-  "pause_btn": "Pause"
+  "pause_btn": "Pause",
+
+  "menu_manage_videos": "Manage Videos",
+  "menu_about": "About",
+
+  "menu_title": "More...",
+
+  "about_description": "This platform was forged by volunteers who have known \"Feiglin was right\" for over 30 years. A very special thanks to Elad Yakobovich for his guidance and steadfast support.\n\nOur goal isn't just a seat at the table—it's taking the head of it. Let's get Moshe the mandates he needs to dictate the terms, break the old system, replace the ineffective leaders, and take our country back!",
+  "about_title": "ABOUT ZEHUT AND THIS APP",
+  "nav_feed": "Feed",
+  "nav_map": "Map",
+  "drawer_admin": "Admin Feed Manager",
+  "drawer_home": "Home",
+  "drawer_settings": "Settings",
+
+  "admin_feed_title": "MANAGE FEED",
+  "admin_feed_empty": "Feed is empty. Click + to add a video.",
+  "dialog_add_title": "Add New Video",
+  "dialog_filename_hint": "e.g. moshe-feiglin-intro-zehut",
+  "dialog_filename_helper": "Just the filename, no .mp4 or .jpg",
+  "dialog_edit_title": "Edit Video Details",
+  "dialog_delete_title": "Delete Video?",
+  "dialog_delete_confirm": "Are you sure you want to remove this video from the feed?",
+  "field_title": "Title",
+  "field_subtitle": "Subtitle",
+  "field_likes": "Like Count",
+  "field_locked": "Is Locked (Requires Auth)",
+  "btn_cancel": "Cancel",
+  "btn_add_to_feed": "Add to Feed",
+  "btn_save_changes": "Save Changes",
+  "btn_delete": "Delete",
+  "label_no_title": "No Title",
+  "menu_install": "Install App"
+
+
 }

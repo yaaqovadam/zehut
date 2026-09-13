@@ -54,10 +54,15 @@ dependencies:
   uuid: ^4.3.3
   firebase_storage: ^13.4.6
   web: ^1.1.1
+  firebase_auth: ^6.6.1
+
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+dependency_overrides:
+  firebase_core_web: 3.10.0
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

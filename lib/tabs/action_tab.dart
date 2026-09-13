@@ -565,7 +565,6 @@ class _ActionTabState extends State<ActionTab> {
                         ),
                         onPressed: () async {
                           FocusScope.of(statefulContext).unfocus();
-
                           String contactInfo = _phoneController.text.replaceAll(RegExp(r'[^0-9]'), '');
 
                           if (contactInfo.length < 9) {
@@ -574,53 +573,31 @@ class _ActionTabState extends State<ActionTab> {
                           }
 
                           try {
-                            String masterUid = generateSecureToken();
-                            DocumentSnapshot citizenDoc = await FirebaseFirestore.instance.collection('citizens').doc(contactInfo).get();
+                            final result = await di<AppState>().processPhoneAuth(
+                              contactInfo,
+                              {
+                                'map_status': selectedStatus,
+                                'timestamp_map': FieldValue.serverTimestamp(),
+                              },
+                            );
 
-                            int currentA2hs = 0;
-                            bool alreadyVerified = false;
-
-                            if (citizenDoc.exists && citizenDoc.data() != null) {
-                              final dataMap = citizenDoc.data() as Map<String, dynamic>;
-                              masterUid = dataMap['uid'] ?? masterUid;
-                              currentA2hs = dataMap['a2hs_count'] ?? 0;
-
-                              var v = dataMap['verified'];
-                              alreadyVerified = (v == true || v == 'true');
-                            }
-
-                            if (alreadyVerified) {
-                              Navigator.of(bottomSheetContext).pop(); // Clear UI
-                              await di<AppState>().savePhone(contactInfo);
-                              await _savePinToFirebase(latLng, masterUid);
+                            if (result.isAlreadyVerified) {
+                              Navigator.of(bottomSheetContext).pop();
+                              await _savePinToFirebase(latLng, result.uid);
 
                               if (mounted) {
                                 Future.delayed(const Duration(milliseconds: 400), () {
-                                  if (mounted) {
-                                    _showA2HSBottomSheet();
-                                  }
+                                  if (mounted) _showA2HSBottomSheet();
                                 });
                               }
-                              return;
-                            }
-
-                            String newAuthCode = generateSecureToken();
-                            await FirebaseFirestore.instance.collection('citizens').doc(contactInfo).set({
-                              'phone': contactInfo,
-                              'uid': masterUid,
-                              'map_status': selectedStatus,
-                              'timestamp_map': FieldValue.serverTimestamp(),
-                              'auth_code': newAuthCode,
-                              'verified': false,
-                              'a2hs_count': currentA2hs,
-                            }, SetOptions(merge: true));
-
-                            setModalState(() {
-                              setState(() {
-                                _pendingPhone = contactInfo;
-                                _authCode = newAuthCode;
+                            } else {
+                              setModalState(() {
+                                setState(() {
+                                  _pendingPhone = result.phone;
+                                  _authCode = result.authCode;
+                                });
                               });
-                            });
+                            }
                           } catch (e) {
                             _showError("map_err_save".tr());
                           }
@@ -734,8 +711,8 @@ class _ActionTabState extends State<ActionTab> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  margin: const EdgeInsets.all(20),
-                  padding: const EdgeInsets.all(15),
+                  margin: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: const Color(0xFF1f1a54).withOpacity(0.95),
                     borderRadius: BorderRadius.circular(15),
@@ -753,7 +730,7 @@ class _ActionTabState extends State<ActionTab> {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white70,
-                          fontSize: Localizations.localeOf(context).languageCode == 'en' ? 12.5 : 14.0,
+                          fontSize: Localizations.localeOf(context).languageCode == 'en' ? 11: 14.0,
                         ),
                       ),
                     ],
@@ -785,22 +762,22 @@ class _ActionTabState extends State<ActionTab> {
                           },
                           icon: Icon(
                             _isMapMoved ? Icons.save : (_hasSavedPin ? Icons.shield : Icons.add_moderator),
-                            color: _hasSavedPin ? Colors.amber : Colors.black,
-                            size: 28,
+                            color: Theme.of(context).primaryColor,
+                            size: 33,
                           ),
                           label: Text(
                             _isMapMoved
                                 ? "map_btn_save".tr()
                                 : (_hasSavedPin ? "map_btn_edit_status".tr() : "map_btn_organize".tr()),
                             style: TextStyle(
-                              color: _hasSavedPin ? Colors.amber : Colors.black,
-                              fontSize: context.locale.languageCode == 'he' ? 16 : 14,
+                              color: _hasSavedPin ? Colors.lightBlue : Colors.white60,
+                              fontSize: context.locale.languageCode == 'he' ? 18 : 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _hasSavedPin ? const Color(0xFF1f1a54) : Theme.of(context).primaryColor,
-                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            padding: const EdgeInsets.symmetric(vertical: 5),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                             elevation: 10,
                           ),

@@ -10,10 +10,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
 import 'dart:html' as html;
-import 'dart:js_interop';
 
 import '../common/common.dart';
 import '../app_state.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+bool sessionAudioUnlocked = false;
 
 class FeedTab extends StatefulWidget {
   const FeedTab({super.key});
@@ -26,6 +28,8 @@ class _FeedTabState extends State<FeedTab> {
   List<Map<String, dynamic>> _feedVideos = [];
   bool _isLoadingFeed = true;
   late PageController _pageController;
+  bool sessionAudioUnlocked = false;
+
 
   final ValueNotifier<int> _currentScrollNotifier = ValueNotifier<int>(0);
   final ValueNotifier<bool> _isGlobalMuted = ValueNotifier<bool>(true);
@@ -40,16 +44,33 @@ class _FeedTabState extends State<FeedTab> {
     if (_feedVideos.isEmpty) return 0;
     return (i % _feedVideos.length + _feedVideos.length) % _feedVideos.length;
   }
+  void _nukeSafariPlayButton() {
+    if (kIsWeb) {
+      if (html.document.getElementById('nuke-safari-button') == null) {
+        final style = html.StyleElement()
+          ..id = 'nuke-safari-button'
+          ..text = '''
+            video::-webkit-media-controls-start-playback-button,
+            video::-webkit-media-controls,
+            video::-webkit-media-controls-enclosure {
+              display: none !important;
+              -webkit-appearance: none !important;
+            }
+          ''';
+        html.document.head?.append(style);
+      }
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    _nukeSafariPlayButton(); // 🔥 Injects the CSS at runtime
     _fetchFeedFromFirebase();
     SharedPreferences.getInstance().then((prefs) {
       if (mounted) setState(() => _hasSwipedFeed = prefs.getBool('has_swiped_feed') ?? false);
     });
   }
-
   Future<void> _fetchFeedFromFirebase({int retryCount = 0}) async {
     try {
       final snapshot = await FirebaseFirestore.instance
@@ -57,7 +78,13 @@ class _FeedTabState extends State<FeedTab> {
           .orderBy('index', descending: false)
           .get();
 
-      final List<Map<String, dynamic>> loadedVideos = snapshot.docs.map((doc) {
+      // 🎯 CLIENT-SIDE FILTER: Skips any video where 'online' is explicitly false
+      final List<Map<String, dynamic>> loadedVideos = snapshot.docs
+          .where((doc) {
+        final data = doc.data();
+        return data['online'] != false && data['online'] != 'false';
+      })
+          .map((doc) {
         final data = doc.data();
         return {
           'id': doc.id,
@@ -67,6 +94,7 @@ class _FeedTabState extends State<FeedTab> {
           'thumb': data['thumb'] ?? '',
           'like_count': data['like_count'] ?? 0,
           'isLocked': data['isLocked'] == true || data['isLocked'] == 'true',
+          'online': data['online'] ?? true, // Defaults to true if missing
         };
       }).toList();
 
@@ -80,14 +108,17 @@ class _FeedTabState extends State<FeedTab> {
           int startingIndex = 0;
           if (kIsWeb) {
             try {
-              final metaTag = html.document.querySelector('meta[name="video-index"]');
+              // 1. Look for the exact Firestore Document ID in the HTML head
+              final metaTag = html.document.querySelector('meta[name="video-id"]');
               if (metaTag != null) {
-                final content = metaTag.attributes['content'];
-                if (content != null) startingIndex = int.tryParse(content) ?? 0;
-              } else {
-                final uri = Uri.base;
-                String? videoParam = uri.queryParameters['v'];
-                if (videoParam != null) startingIndex = int.tryParse(videoParam) ?? 0;
+                final targetId = metaTag.attributes['content'];
+                if (targetId != null) {
+                  // 2. Search your loaded Firebase list for that specific ID
+                  int foundIndex = _feedVideos.indexWhere((v) => v['id'] == targetId);
+                  if (foundIndex != -1) {
+                    startingIndex = foundIndex; // 3. Dynamically set the start point
+                  }
+                }
               }
             } catch (_) {}
 
@@ -95,7 +126,6 @@ class _FeedTabState extends State<FeedTab> {
               startingIndex = 0;
             }
           }
-
           int virtualMiddleIndex = (_feedVideos.length * 500) + startingIndex;
           _currentScrollNotifier.value = virtualMiddleIndex;
           _pageController = PageController(initialPage: virtualMiddleIndex);
@@ -104,7 +134,6 @@ class _FeedTabState extends State<FeedTab> {
     } catch (e) {
       print("🚨 FAILED TO LOAD FEED (Attempt ${retryCount + 1}): $e");
 
-      // Auto-retry up to 3 times with a short delay if the initial reload fails
       if (retryCount < 3 && mounted) {
         await Future.delayed(const Duration(milliseconds: 600));
         return _fetchFeedFromFirebase(retryCount: retryCount + 1);
@@ -113,6 +142,7 @@ class _FeedTabState extends State<FeedTab> {
       if (mounted) setState(() => _isLoadingFeed = false);
     }
   }
+  // 👆 --- TO RIGHT HERE --- 👆
 
   void _setGlobalMute(bool isMuted) async {
     if (_isGlobalMuted.value == isMuted) return;
@@ -308,7 +338,21 @@ class _FeedTabState extends State<FeedTab> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Icon(Icons.shield, size: 80, color: Colors.blueAccent),
+                      SizedBox(
+                        width: 80,
+                        height: 80,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            const Icon(Icons.shield, size: 80, color: Colors.blueAccent),
+                            // Positioned slightly higher to visually center inside the shield's curves
+                            const Positioned(
+                              top: 18,
+                              child: MagenDavid(size:40, color: Colors.white, strokeWidth: 3.0),
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: 20),
                       Text("map_dialog_title".tr(), textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
                       const SizedBox(height: 15),
@@ -350,42 +394,22 @@ class _FeedTabState extends State<FeedTab> {
                           }
 
                           try {
-                            String masterUid = generateSecureToken();
-                            DocumentSnapshot citizenDoc = await FirebaseFirestore.instance.collection('citizens').doc(contactInfo).get();
+                            final result = await di<AppState>().processPhoneAuth(
+                              contactInfo,
+                              {}, // No extra payload needed here
+                            );
 
-                            int currentA2hs = 0;
-                            bool alreadyVerified = false;
-
-                            if (citizenDoc.exists && citizenDoc.data() != null) {
-                              final dataMap = citizenDoc.data() as Map<String, dynamic>;
-                              masterUid = dataMap['uid'] ?? masterUid;
-                              currentA2hs = dataMap['a2hs_count'] ?? 0;
-                              var v = dataMap['verified'];
-                              alreadyVerified = (v == true || v == 'true');
-                            }
-
-                            if (alreadyVerified) {
+                            if (result.isAlreadyVerified) {
                               Navigator.of(bottomSheetContext).pop();
-                              await di<AppState>().savePhone(contactInfo);
                               setState(() {});
-                              return;
-                            }
-
-                            String newAuthCode = generateSecureToken();
-                            await FirebaseFirestore.instance.collection('citizens').doc(contactInfo).set({
-                              'phone': contactInfo,
-                              'uid': masterUid,
-                              'auth_code': newAuthCode,
-                              'verified': false,
-                              'a2hs_count': currentA2hs,
-                            }, SetOptions(merge: true));
-
-                            setModalState(() {
-                              setState(() {
-                                _pendingPhone = contactInfo;
-                                _authCode = newAuthCode;
+                            } else {
+                              setModalState(() {
+                                setState(() {
+                                  _pendingPhone = result.phone;
+                                  _authCode = result.authCode;
+                                });
                               });
-                            });
+                            }
                           } catch (e) {
                             _showError("map_err_save".tr());
                           }
@@ -420,47 +444,19 @@ class _FeedTabState extends State<FeedTab> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDesktop = MediaQuery.of(context).size.width > 600;
+    final double screenWidth = MediaQuery.of(context).size.width;
+
+    // 🎯 STRICT WIDTH GATE: Only lock to 650 if the screen is ACTUALLY wider than 650
+    final double containerWidth = screenWidth > 650 ? 650 : double.infinity;
 
     return Scaffold(
       backgroundColor: Colors.black,
-      // floatingActionButton: FloatingActionButton.extended(
-      //   backgroundColor: Colors.redAccent,
-      //   label: const Text("MIGRATE DB", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      //   icon: const Icon(Icons.rocket_launch, color: Colors.white),
-      //   onPressed: () async {
-      //     print("🚀 Starting database migration...");
-      //     final snapshot = await FirebaseFirestore.instance.collection('feeds').get();
-      //
-      //     // 🛑 REPLACE THIS WITH YOUR REAL CLOUDFLARE URL BASE 🛑
-      //     // Make sure it ends with a slash!
-      //     const String cloudflareBaseUrl = "https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/";
-      //
-      //     int count = 0;
-      //     for (var doc in snapshot.docs) {
-      //       String currentUrl = doc.data()['url']?.toString() ?? '';
-      //
-      //       // Only update it if it's still using the old local asset path
-      //       if (currentUrl.startsWith('assets/')) {
-      //         // Grabs just the filename (e.g. "vid1.mp4" from "assets/videos/vid1.mp4")
-      //         String fileName = currentUrl.split('/').last;
-      //         String newUrl = "$cloudflareBaseUrl$fileName";
-      //
-      //         await doc.reference.update({'url': newUrl});
-      //         print("✅ Updated ${doc.id} -> $newUrl");
-      //         count++;
-      //       }
-      //     }
-      //     print("🎉 MIGRATION COMPLETE! $count videos updated.");
-      //   },
-      // ),
-      // // 👆 END TEMPORARY BUTTON 👆
       body: Center(
         child: SizedBox(
-          width: isDesktop ? 650 : double.infinity,
+          width: containerWidth,
           height: double.infinity,
           child: _isLoadingFeed
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFFF59E0B)))
+              ? const Center(child: CircularProgressIndicator(color: Colors.lightBlue))
               : _feedVideos.isEmpty
               ? const Center(child: Text("No videos found.", style: TextStyle(color: Colors.white)))
               : NotificationListener<ScrollNotification>(
@@ -549,6 +545,7 @@ class FeedVideoPlayer extends StatefulWidget {
   State<FeedVideoPlayer> createState() => _FeedVideoPlayerState();
 }
 
+
 class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   VideoPlayerController? _controller;
   bool _isPlaying = false;
@@ -556,10 +553,28 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   bool _isInitializing = false;
   bool _showUi = true;
   Timer? _uiHideTimer;
+  bool isAdmin = false;
+  bool isLoading = true;
 
   bool _isShowingSwipeGate = false; // 🔥 The Grandpa Gate state
 
   late int likeCount;
+  bool _hasTappedInitialPlay = false;
+
+
+  // Future<void> _initFeed() async {
+  //   final isAdminUser = true;
+  //   // if (!mounted) return;
+  //   //
+  //   // setState(() {
+  //   //   isAdmin = isAdminUser;
+  //   //   isLoading = false;
+  //   // });
+  //   setState(() {
+  //     isAdmin = true;
+  //     isLoading = false;
+  //   });
+  // }
 
   @override
   void initState() {
@@ -651,36 +666,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       if (mounted && widget.isVisible && _controller == ctrl) {
         setState(() => _isShowingSwipeGate = false);
         ctrl.seekTo(Duration.zero);
-
-        ctrl.play().then((_) {
-          if (!mounted || _controller != ctrl) return;
-          _startUiHideTimer();
-
-          if (!widget.isMuted) {
-            Future.delayed(const Duration(milliseconds: 150), () {
-              if (mounted && _controller == ctrl && widget.isVisible) {
-                ctrl.setVolume(1.0);
-              }
-            });
-          }
-
-          // 🐕 WATCHDOG: Catch the silent browser block caused by the 2-second delay
-          Future.delayed(const Duration(milliseconds: 450), () {
-            if (mounted && widget.isVisible && _controller == ctrl && _isInitialized) {
-              if (!ctrl.value.isPlaying) {
-                print("🐕 Watchdog auto-kick triggered after gate!");
-                ctrl.setVolume(widget.isMuted ? 0.0 : 1.0);
-                ctrl.play().catchError((_) {
-                  // Do not loop here. If it hard-fails, the user can just tap the screen to play.
-                });
-              }
-            }
-          });
-
-        }).catchError((_) {
-          // Do not loop here. Let it fail gracefully so the play button stays visible.
-          print("🚨 Autoplay blocked by browser after 2-second delay");
-        });
+        // 🛑 VIDEO STOPS HERE. NO AUTOPLAY. WAITS FOR GRANDMA TO TAP THE GLASS BUTTON.
+        setState(() => _isPlaying = false);
       }
     });
   }
@@ -690,8 +677,11 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
     if (_controller != null && _isInitialized) {
       _controller!.setVolume(widget.isMuted ? 0.0 : 1.0);
-      if (!widget.hasSwipedFeed) {
-        _triggerTutorialGate(_controller!);
+
+      // 🛑 STRICT GATE: MUST TAP TO PLAY
+      if (!sessionAudioUnlocked) {
+        _controller!.pause();
+        setState(() => _isPlaying = false);
       } else {
         _controller!.play().then((_) {
           _startUiHideTimer();
@@ -724,43 +714,35 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       setState(() => _isInitialized = true);
       _isInitializing = false;
 
-      // 🔥 DISABLE LOOPING SO WE CAN HIJACK IT
       newController.setLooping(false);
       newController.setVolume(widget.isMuted ? 0.0 : 1.0);
 
       newController.addListener(() {
         if (!mounted || _controller != newController) return;
-
         bool actualPlaying = newController.value.isPlaying;
-
         if (actualPlaying && newController.value.position == Duration.zero) {
           actualPlaying = false;
         }
-
         if (_isPlaying != actualPlaying) {
           setState(() => _isPlaying = actualPlaying);
         }
 
-        // 🔥 HIJACK THE END OF THE VIDEO
         if (newController.value.isInitialized &&
             newController.value.duration > Duration.zero &&
             newController.value.position >= newController.value.duration) {
-          if (!widget.hasSwipedFeed) {
-            _triggerTutorialGate(newController);
-          } else {
-            newController.seekTo(Duration.zero);
-            newController.play();
-          }
+          newController.seekTo(Duration.zero);
+          newController.play();
         }
       });
 
-      if (!widget.hasSwipedFeed) {
-        _triggerTutorialGate(newController);
+      // 🛑 STRICT GATE: MUST TAP TO PLAY
+      if (!sessionAudioUnlocked) {
+        newController.pause();
+        setState(() => _isPlaying = false);
       } else {
         newController.play().then((_) {
           if (!mounted || _controller != newController) return;
           _startUiHideTimer();
-
           if (!widget.isMuted) {
             Future.delayed(const Duration(milliseconds: 150), () {
               if (mounted && _controller == newController && widget.isVisible) {
@@ -768,38 +750,16 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
               }
             });
           }
-
-          Future.delayed(const Duration(milliseconds: 450), () {
-            if (mounted && widget.isVisible && _controller == newController && _isInitialized) {
-              if (!_controller!.value.isPlaying) {
-                _controller!.setVolume(widget.isMuted ? 0.0 : 1.0);
-                _controller!.play().catchError((_) {
-                  _disposeController();
-                  _initAndPlay();
-                });
-              }
-            }
-          });
-        }).catchError((e) {
-          if (mounted && _controller == newController) {
-            _disposeController();
-          }
         });
-      }
-    }).catchError((e) {
-      if (mounted && _controller == newController) {
-        _isInitializing = false;
-        _controller = null;
-        newController.dispose();
       }
     });
   }
-
   void _disposeController() {
     _uiHideTimer?.cancel();
     _isInitializing = false;
     final oldController = _controller;
     _controller = null;
+    _isInitialized = false;
     _isInitialized = false;
     _isPlaying = false;
     if (oldController != null) {
@@ -814,6 +774,178 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     super.dispose();
   }
 
+  void _togglePlayPause() {
+    _onUserInteraction();
+
+    if (widget.isLocked) {
+      widget.onUnlockTap();
+      return;
+    }
+
+    // Unlocks session and un-mutes on first manual interaction
+    if (!sessionAudioUnlocked) {
+      setState(() => sessionAudioUnlocked = true);
+      widget.onToggleMute(false);
+    }
+
+    if (_controller == null || !_isInitialized || !_controller!.value.isInitialized) {
+      _disposeController();
+      _initAndPlay();
+      return;
+    }
+
+    if (_controller!.value.isPlaying) {
+      _controller!.pause();
+      setState(() {
+        _isPlaying = false;
+        _showUi = true;
+      });
+      _uiHideTimer?.cancel();
+    } else {
+      _controller!.setVolume(widget.isMuted ? 0.0 : 1.0);
+      _controller!.play().then((_) {
+        if (mounted) {
+          setState(() => _isPlaying = true);
+          _startUiHideTimer();
+        }
+      }).catchError((_) {
+        _disposeController();
+        _initAndPlay();
+      });
+    }
+  }
+  Widget _buildMarbleButton() {
+    // 1. Grab the current video's Firestore ID
+    final String videoId = widget.videoData['id']?.toString() ?? '';
+
+    // // 2. Kill the button if audio is unlocked, the video is locked, OR it's NOT the intro video
+    // if (sessionAudioUnlocked || widget.isLocked || videoId != 'moshe-feiglin-intro-zehut-') {
+    //   return const SizedBox.shrink();
+    // }
+// Show the marble button on whichever video is currently visible before audio is unlocked
+    if (sessionAudioUnlocked || widget.isLocked || !widget.isVisible) {
+      return const SizedBox.shrink();
+    }
+    // 3. Back to perfectly centered without the 100px offset
+    return Center(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          setState(() {
+            sessionAudioUnlocked = true;
+          });
+
+          widget.onToggleMute(false);
+
+          if (_controller != null && _controller!.value.isInitialized) {
+            _controller!.setVolume(1.0);
+            _controller!.play().then((_) {
+              if (mounted) {
+                setState(() => _isPlaying = true);
+                _startUiHideTimer();
+              }
+            });
+          } else {
+            _initAndPlay();
+          }
+        },
+        child: Container(
+          width: 92,
+          height: 92,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.25),
+                blurRadius: 12,
+                offset: const Offset(0, 7),
+              ),
+              BoxShadow(
+                color: const Color(0xFF2979FF).withOpacity(0.45),
+                blurRadius: 20,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: ClipOval(
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    center: const Alignment(-0.25, -0.35),
+                    radius: 0.9,
+                    colors: [
+                      const Color(0xFF82B1FF).withOpacity(0.35),
+                      const Color(0xFF2979FF).withOpacity(0.50),
+                      const Color(0xFF2962FF).withOpacity(0.55),
+                    ],
+                    stops: const [0.0, 0.55, 1.0],
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.5),
+                    width: 1.4,
+                  ),
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Positioned(
+                      bottom: 7,
+                      child: Container(
+                        width: 52,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          borderRadius: const BorderRadius.all(Radius.elliptical(52, 18)),
+                          gradient: RadialGradient(
+                            colors: [
+                              Colors.white.withOpacity(0.35),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 6,
+                      child: Container(
+                        width: 58,
+                        height: 27,
+                        decoration: BoxDecoration(
+                          borderRadius: const BorderRadius.all(Radius.elliptical(58, 27)),
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.white.withOpacity(0.85),
+                              Colors.white.withOpacity(0.0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.only(left: 5),
+                      child: Icon(
+                        Icons.play_arrow_rounded,
+                        color: Colors.black,
+                        size: 52,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+
+
+
   @override
   Widget build(BuildContext context) {
     final String thumbUrl = widget.videoData['thumb']?.toString() ?? '';
@@ -824,7 +956,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       children: [
         Container(color: Colors.black),
 
-        // Video Layer
+        // 1. Video Player Layer
         if (_isInitialized && _controller != null)
           FittedBox(
             fit: BoxFit.cover,
@@ -835,22 +967,35 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
             ),
           ),
 
-        // 🖼️ Thumbnail Shield
-        AnimatedOpacity(
-          opacity: (_isInitialized && _isPlaying) ? 0.0 : 1.0,
-          duration: const Duration(milliseconds: 300),
-          child: Container(
-            color: Colors.black, // Fills top/bottom letterboxes with solid black
-            alignment: Alignment.center,
-            child: thumbUrl.isNotEmpty
-                ? Image.network(thumbUrl, fit: BoxFit.fitWidth)
-                : const SizedBox.expand(),
+        // 2. Thumbnail Shield (Stays dead once the video moves)
+        IgnorePointer(
+          ignoring: sessionAudioUnlocked && _isPlaying,
+          child: AnimatedOpacity(
+            // Only show if it's NOT playing AND the video hasn't moved past 0 seconds
+            opacity: (_isInitialized && (_isPlaying || _controller!.value.position.inMilliseconds > 0)) ? 0.0 : 1.0,
+            duration: const Duration(milliseconds: 300),
+            child: Container(
+              color: Colors.black,
+              alignment: Alignment.center,
+              child: thumbUrl.isNotEmpty
+                  ? Image.network(thumbUrl, fit: BoxFit.fitWidth)
+                  : const SizedBox.expand(),
+            ),
           ),
         ),
 
-        // 🛑 THE 2-SECOND GRANDPA GATE
-// 🛑 THE 2-SECOND GRANDPA GATE
-        // 🛑 THE 2-SECOND GRANDPA GATE
+        // 3. Full-Screen Tap Layer (MUST sit below the bottom bar)
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _togglePlayPause,
+          ),
+        ),
+
+        // 4. Initial Blue Glass Marble (First load only, isolated to specific video ID)
+        // _buildMarbleButton(),
+
+        // 5. Grandpa Gate
         if (_isShowingSwipeGate)
           Container(
             color: Colors.black.withOpacity(0.95),
@@ -861,10 +1006,10 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                 TweenAnimationBuilder<double>(
                   tween: Tween(begin: 0.0, end: 1.0),
                   duration: const Duration(milliseconds: 1200),
-                  curve: Curves.elasticOut, // Creates a natural physical bounce
+                  curve: Curves.elasticOut,
                   builder: (context, val, child) {
                     return Padding(
-                      padding: EdgeInsets.only(bottom: val * 40), // Physically moves the icon up
+                      padding: EdgeInsets.only(bottom: val * 40),
                       child: const Icon(Icons.touch_app, color: Colors.amber, size: 90),
                     );
                   },
@@ -883,73 +1028,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
             ),
           ),
 
-        // Loading Spinner
-        if ((!_isInitialized || _isInitializing) && widget.isVisible && !widget.isLocked)
-          const Center(child: CircularProgressIndicator(color: Colors.blueAccent)),
-
-        // 🏷️ DEBUG OVERLAY: Identifies the black screen video (0.4 Opacity)
-        // Center(
-        //   child: IgnorePointer(
-        //     child: Opacity(
-        //       opacity: 0.4,
-        //       child: Padding(
-        //         padding: const EdgeInsets.symmetric(horizontal: 20),
-        //         child: Column(
-        //           mainAxisSize: MainAxisSize.min,
-        //           children: [
-        //             Text(
-        //               widget.videoData['title']?.toString().isNotEmpty == true
-        //                   ? widget.videoData['title'].toString()
-        //                   : "No Title",
-        //               textAlign: TextAlign.center,
-        //               style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-        //             ),
-        //             const SizedBox(height: 8),
-        //             Text(
-        //               "Document: ${widget.videoData['id']}", // Shows the exact Firestore doc name
-        //               textAlign: TextAlign.center,
-        //               style: const TextStyle(color: Colors.redAccent, fontSize: 18, fontWeight: FontWeight.bold),
-        //             ),
-        //           ],
-        //         ),
-        //       ),
-        //     ),
-        //   ),
-        // ),
-
-        // 🛡️ HARD-RESET TAP DETECTOR
-        Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              if (widget.isLocked) {
-                widget.onUnlockTap();
-                return;
-              }
-
-              if (_controller == null || !_isInitialized || !_controller!.value.isInitialized) {
-                _disposeController();
-                _initAndPlay();
-              } else {
-                if (_controller!.value.isPlaying) {
-                  _controller!.pause();
-                  setState(() => _isPlaying = false);
-                } else {
-                  _controller!.setVolume(widget.isMuted ? 0.0 : 1.0);
-                  _controller!.play().catchError((_) {
-                    _disposeController();
-                    _initAndPlay();
-                  });
-                  setState(() => _isPlaying = true);
-                }
-              }
-              _toggleUiVisibility();
-            },
-            child: const SizedBox.expand(),
-          ),
-        ),
-
-        // Censored Overlay
+        // 6. Lock Overlays
         if (widget.isLocked)
           Positioned.fill(
             child: Container(
@@ -979,7 +1058,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
             ),
           ),
 
-        // Fading Gradient Background (Fades to 30%)
+        // 7. Gradient Background
         Positioned(
           bottom: 0,
           left: 0,
@@ -988,101 +1067,86 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           child: AnimatedOpacity(
             opacity: _showUi ? 1.0 : 0.3,
             duration: const Duration(milliseconds: 250),
-            child: IgnorePointer(
-              ignoring: !_showUi,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
-                  ),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
                 ),
               ),
             ),
           ),
         ),
 
-        // Action Buttons Row (Fades to 30%, always clickable)
+        // 8. Action Buttons Row
         Positioned(
           bottom: MediaQuery.of(context).padding.bottom,
-          left: 15,
-          right: 15,
-          child: AnimatedOpacity(
-            opacity: _showUi ? 1.0 : 0.3,
-            duration: const Duration(milliseconds: 250),
-            child: IgnorePointer(
-              ignoring: false,
-              child: Directionality(
-                textDirection: ui.TextDirection.ltr,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    ValueListenableBuilder<List<String>>(
-                      valueListenable: di<AppState>().savedClips,
-                      builder: (context, savedClipsList, child) {
-                        final bool isLiked = savedClipsList.contains(videoId);
-                        return ValueListenableBuilder<bool>(
-                          valueListenable: di<AppState>().isLoggedIn,
-                          builder: (context, isLoggedIn, child) {
-                            return _buildActionButton(
-                              isLiked ? Icons.favorite : Icons.favorite_border,
-                              _formatLikes(likeCount),
-                              isLiked ? Colors.red : Colors.white,
-                              onTap: () {
-                                _onUserInteraction();
-                                if (!isLoggedIn) {
-                                  widget.onUnlockTap();
-                                  return;
-                                }
-
-                                final currentClips = List<String>.from(savedClipsList);
-                                setState(() {
-                                  if (isLiked) {
-                                    currentClips.remove(videoId);
-                                    likeCount = (likeCount > 0) ? likeCount - 1 : 0;
-                                  } else {
-                                    currentClips.add(videoId);
-                                    likeCount += 1;
+          left: 0,
+          right: 0,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _onUserInteraction,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 15),
+              child: AnimatedOpacity(
+                opacity: _showUi ? 1.0 : 0.3,
+                duration: const Duration(milliseconds: 250),
+                child: Directionality(
+                  textDirection: ui.TextDirection.ltr,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      // Heart Button
+                      ValueListenableBuilder<List<String>>(
+                        valueListenable: di<AppState>().savedClips,
+                        builder: (context, savedClipsList, child) {
+                          final bool isLiked = savedClipsList.contains(videoId);
+                          return ValueListenableBuilder<bool>(
+                            valueListenable: di<AppState>().isLoggedIn,
+                            builder: (context, isLoggedIn, child) {
+                              return _buildActionButton(
+                                isLiked ? Icons.favorite : Icons.favorite_border,
+                                _formatLikes(likeCount),
+                                isLiked ? Colors.red : Colors.white,
+                                onTap: () {
+                                  _onUserInteraction();
+                                  if (!isLoggedIn) {
+                                    widget.onUnlockTap();
+                                    return;
                                   }
-                                });
 
-                                di<AppState>().savedClips.value = currentClips;
-                                _syncLikeToFirebase(!isLiked, videoId);
-                              },
-                            );
-                          },
-                        );
-                      },
-                    ),
-                    _buildActionButton(
+                                  final currentClips = List<String>.from(savedClipsList);
+                                  setState(() {
+                                    if (isLiked) {
+                                      currentClips.remove(videoId);
+                                      likeCount = (likeCount > 0) ? likeCount - 1 : 0;
+                                    } else {
+                                      currentClips.add(videoId);
+                                      likeCount += 1;
+                                    }
+                                  });
+
+                                  di<AppState>().savedClips.value = currentClips;
+                                  _syncLikeToFirebase(!isLiked, videoId);
+                                },
+                              );
+                            },
+                          );
+                        },
+                      ),
+
+                      // Dedicated Play / Pause Button
+                      _buildActionButton(
                         _isPlaying ? Icons.pause : Icons.play_arrow,
                         _isPlaying ? "pause_btn".tr() : "play_btn".tr(),
                         Colors.white,
-                        onTap: () {
-                          _onUserInteraction();
-                          if (widget.isLocked) {
-                            widget.onUnlockTap();
-                          } else if (_controller == null || !_isInitialized || !_controller!.value.isInitialized) {
-                            _disposeController();
-                            _initAndPlay();
-                          } else {
-                            if (_controller!.value.isPlaying) {
-                              _controller!.pause();
-                              setState(() => _isPlaying = false);
-                            } else {
-                              _controller!.setVolume(widget.isMuted ? 0.0 : 1.0);
-                              _controller!.play().catchError((_) {
-                                _disposeController();
-                                _initAndPlay();
-                              });
-                              setState(() => _isPlaying = true);
-                            }
-                          }
-                        }
-                    ),
-                    _buildActionButton(
+                        onTap: _togglePlayPause,
+                      ),
+
+                      // Sound / Mute Button
+                      _buildActionButton(
                         widget.isMuted ? Icons.volume_off : Icons.volume_up,
                         "sound_btn".tr(),
                         Colors.white,
@@ -1093,21 +1157,29 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                           } else {
                             widget.onToggleMute(!widget.isMuted);
                           }
-                        }
-                    ),
-                    _buildActionButton(Icons.share, 'feed_share_btn'.tr(), Colors.white, onTap: () async {
-                      _onUserInteraction();
-                      final String title = widget.videoData['title']?.toString() ?? '';
-                      final String shareTitle = title.isNotEmpty ? title : "app_name".tr();
+                        },
+                      ),
 
-                      String rawUrl = widget.videoData['url']?.toString() ?? "";
-                      String htmlFileName = rawUrl.split('/').last.replaceAll('.mp4', '.html');
-                      String exactLink = "https://gamfeiglintzadak.co.il/$htmlFileName";
+                      // Share Button
+                      _buildActionButton(
+                        Icons.share,
+                        'feed_share_btn'.tr(),
+                        Colors.white,
+                        onTap: () async {
+                          _onUserInteraction();
+                          final String title = widget.videoData['title']?.toString() ?? '';
+                          final String shareTitle = title.isNotEmpty ? title : "app_name".tr();
 
-                      final String contentToShare = "$shareTitle\n\n$exactLink";
-                      await Share.share(contentToShare);
-                    }),
-                  ],
+                          String rawUrl = widget.videoData['url']?.toString() ?? "";
+                          String htmlFileName = rawUrl.split('/').last.replaceAll('.mp4', '.html');
+                          String exactLink = "https://gamfeiglintzadak.co.il/$htmlFileName";
+
+                          final String contentToShare = "$shareTitle\n\n$exactLink";
+                          await Share.share(contentToShare);
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1133,4 +1205,74 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       ),
     );
   }
+}
+
+
+
+class MagenDavid extends StatelessWidget {
+  final double size;
+  final Color color;
+  final double strokeWidth;
+
+  const MagenDavid({
+    super.key,
+    this.size = 80,
+    this.color = Colors.white,
+    this.strokeWidth = 4.5, // Thick, modern outline
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: CustomPaint(
+        size: Size(size, size),
+        painter: _MagenDavidPainter(color: color, strokeWidth: strokeWidth),
+      ),
+    );
+  }
+}
+
+class _MagenDavidPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+
+  _MagenDavidPainter({required this.color, required this.strokeWidth});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round;
+
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    // Shrink radius slightly so the thick stroke doesn't get clipped at the edges
+    final r = (size.width < size.height ? size.width : size.height) / 2 - strokeWidth;
+
+    const sin30 = 0.5;
+    const cos30 = 0.8660254; // Exact geometry: sqrt(3) / 2
+
+    // Triangle 1 (pointing up)
+    final path1 = Path()
+      ..moveTo(cx, cy - r)
+      ..lineTo(cx + r * cos30, cy + r * sin30)
+      ..lineTo(cx - r * cos30, cy + r * sin30)
+      ..close();
+
+    // Triangle 2 (pointing down)
+    final path2 = Path()
+      ..moveTo(cx, cy + r)
+      ..lineTo(cx - r * cos30, cy - r * sin30)
+      ..lineTo(cx + r * cos30, cy - r * sin30)
+      ..close();
+
+    canvas.drawPath(path1, paint);
+    canvas.drawPath(path2, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

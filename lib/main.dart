@@ -11,7 +11,7 @@ import 'app_state.dart';
 import 'main_shell.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'admin/admin_feed_manager.dart';
+import 'tabs/admin_feed_manager.dart';
 
 
 /*
@@ -35,7 +35,6 @@ import 'admin/admin_feed_manager.dart';
   print("🔥🔥🔥 ALL 26 VIDEOS WRITTEN TO FIRESTORE DIRECTLY FROM APP! 🔥🔥🔥");
 }
 */
-
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -93,6 +92,11 @@ class ZehutApp extends StatelessWidget {
         scaffoldBackgroundColor: Colors.white,
         primaryColor: Colors.lightBlue,
 
+        // 🎯 THE FIX: Forces every generic spinner in the app to default to light blue
+        progressIndicatorTheme: const ProgressIndicatorThemeData(
+          color: Colors.lightBlue,
+        ),
+
         colorScheme: const ColorScheme.light(
           primary: Colors.lightBlue,
           secondary: Color(0xFFF59E0B),
@@ -144,7 +148,9 @@ class ZehutApp extends StatelessWidget {
           inactiveTrackColor: const Color(0xFF103856).withOpacity(0.1),
         ),
       ),
+      // home: const MainShell(),
       home: const MainShell(),
     );
   }
 }
+

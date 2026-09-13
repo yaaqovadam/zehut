@@ -1,4 +1,4 @@
-const admin = require("firebase-admin");
+pwdconst admin = require("firebase-admin");
 
 admin.initializeApp({
   credential: admin.credential.applicationDefault(),

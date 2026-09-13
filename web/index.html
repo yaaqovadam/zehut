@@ -1,11 +1,162 @@
 <!DOCTYPE html>
 <html lang="he">
 <head>
+  <script>
+    window.deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      window.deferredPrompt = e;
+    });
+
+    window.triggerAppInstall = async function(lang = 'he') {
+      try {
+        const isEn = lang === 'en';
+
+        // 🎯 DYNAMIC TRANSLATIONS & BRANDING
+        const t = {
+          dir: isEn ? 'ltr' : 'rtl',
+          alreadyInstalled: isEn ? "The app is already installed!" : "האפליקציה כבר מותקנת!",
+
+          // The big bold ZEHUT injection
+          titleGeneral: isEn
+            ? `Install <span style="color: lightblue; font-size: 1.3em; font-weight: 900; letter-spacing: 1px;">ZEHUT</span>`
+            : `התקנת <span style="color: lightblue; font-size: 1.3em; font-weight: 900; letter-spacing: 1px;">ZEHUT</span>`,
+          titleMac: isEn
+            ? `Install <span style="color: lightblue; font-size: 1.3em; font-weight: 900; letter-spacing: 1px;">ZEHUT</span> (Mac)`
+            : `התקנת <span style="color: lightblue; font-size: 1.3em; font-weight: 900; letter-spacing: 1px;">ZEHUT</span> (Mac)`,
+
+          desc: isEn ? "Install the app for a faster and smoother experience!" : "התקינו את האפליקציה לחוויה מהירה וחלקה יותר!",
+          btnText: isEn ? "Install ZEHUT Now" : "התקן את ZEHUT עכשיו",
+
+          iosStep1: isEn ? "1. Tap the Share icon in your browser:" : "1. חפשו את סמל השיתוף בדפדפן:",
+          iosStep2: isEn ? "2. Scroll down and select:" : "2. בתפריט שיפתח, בחרו:",
+          iosAction: isEn ? "Add to Home Screen" : "הוסף למסך הבית",
+
+          macSafariStep1: isEn ? "1. Click the Share icon at the top (or in the <strong>File</strong> menu)." : "1. חפשו את סמל השיתוף למעלה (או בתפריט <strong>File</strong>).",
+          macSafariStep2: isEn ? "2. In the menu, select:" : "2. בתפריט שיפתח, בחרו:",
+          macSafariWarning: isEn ? '⚠️ Note: Blocked in "Private Browsing" mode.' : '⚠️ שימו לב: חסום במצב "גלישה בסתר".',
+
+          fallbackAlert: isEn ? "To install, open your browser menu and select 'Add to Home Screen' or 'Install'." : "כדי להתקין, פתחו את התפריט בדפדפן ובחרו 'הוסף למסך הבית' או Install",
+          manualInstallHint: isEn ? "Please click the install icon in your address bar." : "אנא לחצו על סמל ההתקנה בשורת הכתובת למעלה.",
+          closeText: isEn ? "(Tap anywhere outside to close)" : "(הקישו מסביב כדי לסגור)"
+        };
+
+        if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+            alert(t.alreadyInstalled);
+            return;
+        }
+
+        const ua = window.navigator.userAgent.toLowerCase();
+        const isIOS = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isMac = /macintosh|mac os x/.test(ua) && !isIOS;
+        const isAndroid = /android/.test(ua);
+        const isMacChrome = isMac && (ua.includes('chrome') || ua.includes('crios'));
+
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+          position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+          background: rgba(1, 1, 38, 0.95);
+          backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+          z-index: 2147483647; color: white; text-align: center; font-family: system-ui, sans-serif;
+          display: flex; flex-direction: column; justify-content: center; align-items: center;
+          margin: 0; padding: 20px; box-sizing: border-box; direction: ${t.dir};
+        `;
+
+        overlay.onclick = (e) => {
+          if (e.target === overlay) document.body.removeChild(overlay);
+        };
+
+        const style = document.createElement('style');
+        style.innerHTML = `@keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }`;
+        document.head.appendChild(style);
+
+        let innerCardHtml = '';
+        let isDirectInstall = false;
+
+        // 📱 ANDROID & 💻 MAC CHROME - BIG GREEN BUTTON!
+        if (isAndroid || isMacChrome) {
+          isDirectInstall = true;
+          let deviceTitle = isAndroid ? t.titleGeneral : t.titleMac;
+          innerCardHtml = `
+            <h2 style="margin:0 0 15px 0; font-size: 24px; font-weight: bold;">${deviceTitle}</h2>
+            <p style="font-size: 18px; margin: 0 0 25px 0; opacity: 0.9;">${t.desc}</p>
+            <button id="directInstallBtn" style="background: #25D366; color: white; border: none; padding: 15px 30px; font-size: 22px; font-weight: bold; border-radius: 12px; cursor: pointer; width: 100%; box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4);">
+              ${t.btnText}
+            </button>
+          `;
+        }
+        // 📱 iOS SAFARI / CHROME
+        else if (isIOS) {
+          const shareIconSVG = `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin: 15px 0; animation: pulse 2s infinite; color: lightblue;"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>`;
+          const addIconSVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 8px; vertical-align: middle;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>`;
+
+          innerCardHtml = `
+            <h2 style="margin:0 0 15px 0; font-size: 24px; font-weight: bold;">${t.titleGeneral}</h2>
+            <p style="font-size: 18px; margin: 0; opacity: 0.9;">${t.iosStep1}</p>
+            ${shareIconSVG}
+            <p style="font-size: 18px; margin: 0; opacity: 0.9;">${t.iosStep2}</p>
+            <div style="background: white; color: black; padding: 10px 16px; border-radius: 10px; margin-top: 15px; font-size: 18px; font-weight: bold; display: inline-flex; align-items: center; justify-content: center;">
+              ${isEn ? addIconSVG + t.iosAction : t.iosAction + addIconSVG}
+            </div>
+          `;
+        }
+        // 💻 MAC SAFARI
+        else if (isMac && !isMacChrome) {
+          const shareIconSVG = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin: 5px 0; animation: pulse 2s infinite; color: lightblue;"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>`;
+          innerCardHtml = `
+            <h2 style="margin:0 0 15px 0; font-size: 24px; font-weight: bold;">${t.titleMac}</h2>
+            <p style="font-size: 18px; margin: 0; opacity: 0.9;">${t.macSafariStep1}</p>
+            ${shareIconSVG}
+            <p style="font-size: 18px; margin: 10px 0 0 0; opacity: 0.9;">${t.macSafariStep2}</p>
+            <div style="background: white; color: black; padding: 10px 16px; border-radius: 10px; margin-top: 15px; font-size: 18px; font-weight: bold; display: inline-block; direction: ltr;">
+              Add to Dock...
+            </div>
+            <p style="font-size: 14px; margin-top: 25px; color: #ff6b6b; font-weight: bold; line-height: 1.4;">${t.macSafariWarning}</p>
+          `;
+        } else {
+          alert(t.fallbackAlert);
+          return;
+        }
+
+        // Draw the final layout
+        overlay.innerHTML = `
+          <div style="background: rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 30px 20px; max-width: 400px; width: 100%; border: 1px solid rgba(255,255,255,0.2);">
+            ${innerCardHtml}
+            <p style="font-size: 14px; margin-top: 25px; opacity: 0.5;">${t.closeText}</p>
+          </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        if (isDirectInstall) {
+          document.getElementById('directInstallBtn').onclick = async () => {
+            if (window.deferredPrompt) {
+              window.deferredPrompt.prompt();
+              const { outcome } = await window.deferredPrompt.userChoice;
+              window.deferredPrompt = null;
+            } else {
+              alert(t.manualInstallHint);
+            }
+            document.body.removeChild(overlay);
+          };
+        }
+      } catch (e) {
+        console.error("Install script error:", e);
+      }
+    };
+
+    // 🎯 Listen for the signal and extract the language from Flutter
+    window.addEventListener('showInstallPrompt', (e) => {
+      const lang = e.detail || 'he';
+      window.triggerAppInstall(lang);
+    });
+  </script>
+  <script src="flutter_bootstrap.js?v794" async></script>
   <base href="$FLUTTER_BASE_HREF">
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
-  <!-- THE BULLETPROOF CHAMELEON FIX FOR SAFARI & CHROME -->
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#010126" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#010126" media="(prefers-color-scheme: dark)">
@@ -15,90 +166,76 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Zehut">
 
-  <title>הסיפור האמיתי: מה קורה כאן?</title>
+  <title>הסיפור האמיתי: מה קורה כאן? (צפו)</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <!-- EXPLICIT ICON LINKS FOR DESKTOP & MOBILE BROWSERS -->
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
   <link rel="apple-touch-icon" sizes="512x512" href="icons/Icon-512.png">
 
-  <!-- Open Graph / Facebook / WhatsApp Meta Tags -->
+<!--  <meta name="video-id" content="moshe-feiglin-intro-zehut">-->
+  <meta itemprop="image" content="https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/moshe-feiglin-intro-zehut.jpg">
+
+  <!-- OPEN GRAPH / FACEBOOK / WHATSAPP TAGS -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://gamfeiglintzadak.co.il/moshe-feiglin-intro-zehut.html">
+  <meta property="og:url" content="https://gamfeiglintzadak.co.il/">
   <meta property="og:title" content="הסיפור האמיתי: מה קורה כאן? (צפו)">
   <meta property="og:description" content="צפו לפני הכל כדי להבין את התמונה המלאה.">
-  <meta property="og:image" content="https://gamfeiglintzadak.co.il/moshe-feiglin-intro-zehut.jpg">
-  <meta property="og:image:secure_url" content="https://gamfeiglintzadak.co.il/moshe-feiglin-intro-zehut.jpg">
+  <meta property="og:image" content="https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/moshe-feiglin-intro-zehut.jpg">
+  <meta property="og:image:secure_url" content="https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/moshe-feiglin-intro-zehut.jpg">
   <meta property="og:image:type" content="image/jpeg">
-  <meta property="og:image:width" content="1080">
-  <meta property="og:image:height" content="1080">
 
-  <!-- Twitter Meta Tags -->
+  <!-- TWITTER TAGS -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:url" content="https://gamfeiglintzadak.co.il/moshe-feiglin-intro-zehut.html">
-  <meta name="twitter:title" content="הסיפור האמיתי: מה קורה כאן?">
+  <meta name="twitter:url" content="https://gamfeiglintzadak.co.il/">
+  <meta name="twitter:title" content="הסיפור האמיתי: מה קורה כאן? (צפו)">
   <meta name="twitter:description" content="צפו לפני הכל כדי להבין את התמונה המלאה.">
-  <meta name="twitter:image" content="https://gamfeiglintzadak.co.il/moshe-feiglin-intro-zehut.jpg"><!-- Open Graph / Facebook / WhatsApp Meta Tags -->
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://gamfeiglintzadak.co.il/moshe-feiglin-intro-zehut.html">
-  <meta property="og:title" content="הסיפור האמיתי: מה קורה כאן? (צפו)">
-  <meta property="og:description" content="צפו לפני הכל כדי להבין את התמונה המלאה.">
-  <meta property="og:image" content="https://gamfeiglintzadak.co.il/moshe-feiglin-intro-zehut.jpg">
-  <meta property="og:image:secure_url" content="https://gamfeiglintzadak.co.il/moshe-feiglin-intro-zehut.jpg">
-  <meta property="og:image:type" content="image/jpeg">
-  <meta property="og:image:width" content="1080">
-  <meta property="og:image:height" content="1080">
-
-  <!-- Twitter Meta Tags -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:url" content="https://gamfeiglintzadak.co.il/moshe-feiglin-intro-zehut.html">
-  <meta name="twitter:title" content="הסיפור האמיתי: מה קורה כאן?">
-  <meta name="twitter:description" content="צפו לפני הכל כדי להבין את התמונה המלאה.">
-  <meta name="twitter:image" content="https://gamfeiglintzadak.co.il/moshe-feiglin-intro-zehut.jpg">
+  <meta name="twitter:image" content="https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/moshe-feiglin-intro-zehut.jpg">
 
   <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      width: 100vw;
-      height: 100vh;
-      background-color: #ffffff;
-      overflow: hidden;
+    body { background-color: #ffffff; margin: 0; }
+    .splash-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: fixed; /* Locks to the glass of the screen, not the document */
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 2147483647; /* Maximum possible z-index */
+      background-color: white;
+      transition: opacity 0.5s ease-out;
     }
-
-    flt-text-field, input, textarea {
-      background-color: transparent !important;
-      color: white !important;
+    .splash-logo {
+      width: 150px;
+      height: auto;
+      animation: splashPulse 1.2s infinite alternate;
     }
-
-    input:-webkit-autofill,
-    input:-webkit-autofill:hover,
-    input:-webkit-autofill:focus {
-      -webkit-box-shadow: 0 0 0 1000px #1E293B inset !important;
-      -webkit-text-fill-color: white !important;
+    @keyframes splashPulse {
+      0% { transform: scale(1); }
+      100% { transform: scale(1.1); }
     }
   </style>
+
 </head>
 <body>
+<div class="splash-container" id="splash-screen">
+  <!-- Uses your existing Zehut logo -->
+  <img class="splash-logo" src="zehut-logo.png" alt="Loading Zehut..." />
+</div>
 <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-      for(let registration of registrations) {
-        registration.unregister();
-      }
-    });
-  }
-  if ('caches' in window) {
-    caches.keys().then(function(names) {
-      for (let name of names) {
-        caches.delete(name);
-      }
-    });
-  }
+  // Listens for Flutter to finish booting, then cleanly fades out the Zehut logo
+  window.addEventListener('flutter-first-frame', function() {
+    var splash = document.getElementById('splash-screen');
+    if (splash) {
+      splash.style.opacity = '0';
+      setTimeout(() => splash.remove(), 500);
+    }
+  });
 </script>
 
-<script src="flutter_bootstrap.js?v525" async></script>
-" async></script>
 </body>
 </html>
