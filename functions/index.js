@@ -31,6 +31,7 @@ app.post("/processAndDeployVideo", async (req, res) => {
   const endSec = parseInt(end) || 15;
   const fileName = `${docId}.mp4`;
   const tempFilePath = path.join(os.tmpdir(), fileName);
+  const thumbFilePath = path.join(os.tmpdir(), `${docId}.jpg`);
 
   try {
     console.log(`Processing ${url} [${startSec}s - ${endSec}s]...`);
@@ -47,6 +48,19 @@ app.post("/processAndDeployVideo", async (req, res) => {
     if (!fs.existsSync(tempFilePath)) {
       throw new Error("Download finished but output file not found");
     }
+
+    console.log("Generating thumbnail...");
+    execSync(`ffmpeg -i "${tempFilePath}" -ss 00:00:01 -vframes 1 "${thumbFilePath}" -y`);
+
+    console.log("Uploading JPG to Cloudflare R2...");
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: "zehut-media",
+        Key: `${docId}.jpg`,
+        Body: fs.createReadStream(thumbFilePath),
+        ContentType: "image/jpeg",
+      })
+    );
 
     console.log("Uploading MP4 to Cloudflare R2...");
     await s3.send(
@@ -107,10 +121,12 @@ if ('caches' in window) { caches.keys().then(function(names) { for (let name of 
     );
 
     if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+    if (fs.existsSync(thumbFilePath)) fs.unlinkSync(thumbFilePath);
     return res.json({ success: true, fileName });
   } catch (err) {
     console.error("Pipeline error:", err);
     if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+    if (fs.existsSync(thumbFilePath)) fs.unlinkSync(thumbFilePath);
     return res.status(500).json({ error: err.message || "Pipeline failed" });
   }
 });
