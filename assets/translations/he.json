@@ -130,6 +130,16 @@
   "btn_save_changes": "שמור שינויים",
   "btn_delete": "מחק",
   "label_no_title": "ללא כותרת",
-  "menu_install": "התקן אפליקציה"
+  "menu_install": "התקן אפליקציה",
+  "deploy_title": "פריסת וידאו",
+  "deploy_pipeline": "מערכת המדיה של זהות",
+  "deploy_clip_title": "שם הקטע (למשל: נאום ביבי)",
+  "deploy_url": "קישור ליוטיוב",
+  "deploy_start": "התחלה (שניות)",
+  "deploy_end": "סיום (שניות)",
+  "deploy_btn": "חתוך והעלה",
+  "deploy_err_fields": "אנא מלא את כל השדות",
+  "deploy_success": "הסרטון עלה ונשמר בהצלחה!",
+  "deploy_err_fail": "שגיאה בהעלאה: "
 }
 

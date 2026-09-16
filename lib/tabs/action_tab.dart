@@ -38,6 +38,13 @@ class _ActionTabState extends State<ActionTab> {
     _initInitialMapPosition();
   }
 
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _mapController.dispose();
+    super.dispose();
+  }
+
   Future<void> _initInitialMapPosition() async {
     if (di<AppState>().isLoggedIn.value) {
       String? uid = di<AppState>().userUid.value;
@@ -100,7 +107,7 @@ class _ActionTabState extends State<ActionTab> {
 
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      Navigator.pop(context);
+      if (mounted)  Navigator.pop(context);
       _showError("map_err_service".tr());
       return;
     }
@@ -109,14 +116,14 @@ class _ActionTabState extends State<ActionTab> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        Navigator.pop(context);
+        if (mounted)   Navigator.pop(context);
         _showError("map_err_permission".tr());
         return;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      Navigator.pop(context);
+      if (mounted)  Navigator.pop(context);
       _showError("map_err_blocked".tr());
       return;
     }
@@ -413,92 +420,94 @@ class _ActionTabState extends State<ActionTab> {
 
                     return GestureDetector(
                       onTap: () {},
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          bottom: MediaQuery.of(statefulContext).viewInsets.bottom + 30,
-                          top: 30,
-                          left: 30,
-                          right: 30,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const Icon(Icons.lock_outline, size: 80, color: Colors.orangeAccent),
-                            const SizedBox(height: 20),
-                            Text(
-                              "verifyAccountTitle".tr(),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900),
-                            ),
-                            const SizedBox(height: 15),
-                            Text(
-                              "tapToAuthenticate".tr(),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.grey, fontSize: 16, height: 1.4),
-                            ),
-                            const SizedBox(height: 40),
-                            ValueListenableBuilder<int>(
-                              valueListenable: di<AppState>().lockoutSeconds,
-                              builder: (context, secondsLeft, child) {
-                                final bool isLocked = secondsLeft > 0;
-
-                                return ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: isLocked ? Colors.redAccent.shade700 : const Color(0xFF25D366),
-                                    padding: const EdgeInsets.symmetric(vertical: 18),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                                  ),
-                                  icon: Icon(
-                                    isLocked ? Icons.timer : Icons.chat_bubble_outline,
-                                    color: !isLocked ? const Color(0xff010126) : Colors.white,
-                                  ),
-                                  label: Text(
-                                    isLocked
-                                        ? "${'verify_locked_btn'.tr()}${secondsLeft.toString().padLeft(2, '0')}"
-                                        : "verify_whatsapp_btn".tr(),
-                                    style: TextStyle(color: !isLocked ? const Color(0xff010126) : Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                                  ),
-                                  onPressed: isLocked ? () {
-                                    _showTopToast(statefulContext, "verify_toast_locked".tr());
-                                  } : () async {
-                                    di<AppState>().registerAuthAttempt();
-                                    const burnerPhone = "972525822005";
-
-                                    // 1. Grab the localized string
-                                    String instruction = "whatsappVerifyMsg".tr();
-
-                                    // 2. Build string: Code + EXACTLY ONE SPACE + Instruction
-                                    String whatsappMessage = "$_authCode $instruction";
-
-                                    // 3. Encode to prevent URL breaking
-                                    String encodedMessage = Uri.encodeComponent(whatsappMessage);
-
-                                    final url = Uri.parse("https://wa.me/$burnerPhone?text=$encodedMessage");
-                                    if (await canLaunchUrl(url)) {
-                                      await launchUrl(url, mode: LaunchMode.externalApplication);
-                                    }
-                                  },
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 15),
-                            TextButton(
-                              onPressed: () {
-                                setModalState(() {
-                                  setState(() {
-                                    _pendingPhone = null;
-                                    _authCode = null;
-                                    _phoneController.clear();
-                                  });
-                                });
-                              },
-                              child: Text(
-                                "change_phone_btn".tr(),
-                                style: const TextStyle(color: Colors.grey, fontSize: 14),
+                      child: SingleChildScrollView(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            bottom: MediaQuery.of(statefulContext).viewInsets.bottom + 30,
+                            top: 30,
+                            left: 30,
+                            right: 30,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Icon(Icons.lock_outline, size: 80, color: Colors.orangeAccent),
+                              const SizedBox(height: 20),
+                              Text(
+                                "verifyAccountTitle".tr(),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900),
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 15),
+                              Text(
+                                "tapToAuthenticate".tr(),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Colors.grey, fontSize: 16, height: 1.4),
+                              ),
+                              const SizedBox(height: 40),
+                              ValueListenableBuilder<int>(
+                                valueListenable: di<AppState>().lockoutSeconds,
+                                builder: (context, secondsLeft, child) {
+                                  final bool isLocked = secondsLeft > 0;
+                        
+                                  return ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: isLocked ? Colors.redAccent.shade700 : const Color(0xFF25D366),
+                                      padding: const EdgeInsets.symmetric(vertical: 18),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                                    ),
+                                    icon: Icon(
+                                      isLocked ? Icons.timer : Icons.chat_bubble_outline,
+                                      color: !isLocked ? const Color(0xff010126) : Colors.white,
+                                    ),
+                                    label: Text(
+                                      isLocked
+                                          ? "${'verify_locked_btn'.tr()}${secondsLeft.toString().padLeft(2, '0')}"
+                                          : "verify_whatsapp_btn".tr(),
+                                      style: TextStyle(color: !isLocked ? const Color(0xff010126) : Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                    ),
+                                    onPressed: isLocked ? () {
+                                      _showTopToast(statefulContext, "verify_toast_locked".tr());
+                                    } : () async {
+                                      di<AppState>().registerAuthAttempt();
+                                      const burnerPhone = "972525822005";
+                        
+                                      // 1. Grab the localized string
+                                      String instruction = "whatsappVerifyMsg".tr();
+                        
+                                      // 2. Build string: Code + EXACTLY ONE SPACE + Instruction
+                                      String whatsappMessage = "$_authCode $instruction";
+                        
+                                      // 3. Encode to prevent URL breaking
+                                      String encodedMessage = Uri.encodeComponent(whatsappMessage);
+                        
+                                      final url = Uri.parse("https://wa.me/$burnerPhone?text=$encodedMessage");
+                                      if (await canLaunchUrl(url)) {
+                                        await launchUrl(url, mode: LaunchMode.externalApplication);
+                                      }
+                                    },
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 15),
+                              TextButton(
+                                onPressed: () {
+                                  setModalState(() {
+                                    setState(() {
+                                      _pendingPhone = null;
+                                      _authCode = null;
+                                      _phoneController.clear();
+                                    });
+                                  });
+                                },
+                                child: Text(
+                                  "change_phone_btn".tr(),
+                                  style: const TextStyle(color: Colors.grey, fontSize: 14),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -631,6 +640,7 @@ class _ActionTabState extends State<ActionTab> {
   }
 
   void _showError(String message) {
+    if (!mounted) return; // <-- Add this shield
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
   }
 

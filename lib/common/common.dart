@@ -2,9 +2,9 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:watch_it/watch_it.dart';
+// import 'package:watch_it/watch_it.dart';
 
-import '../app_state.dart';
+// import '../app_state.dart';
 
 
 // Color topAndBottomNavigationBarColor= Color(0xFF1f1a54);

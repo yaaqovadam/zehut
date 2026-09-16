@@ -134,7 +134,17 @@
   "btn_save_changes": "Save Changes",
   "btn_delete": "Delete",
   "label_no_title": "No Title",
-  "menu_install": "Install App"
+  "menu_install": "Install App",
+  "deploy_title": "Video Deploy",
+  "deploy_pipeline": "Zehut Media Pipeline",
+  "deploy_clip_title": "Clip Title (e.g. Bibi Speech)",
+  "deploy_url": "YouTube URL",
+  "deploy_start": "Start (sec)",
+  "deploy_end": "End (sec)",
+  "deploy_btn": "RIP & DEPLOY",
+  "deploy_err_fields": "Please fill all fields",
+  "deploy_success": "Deployed & Saved to Feed!",
+  "deploy_err_fail": "Deployment Failed: "
 
 
 }

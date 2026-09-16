@@ -154,7 +154,7 @@ class _FeedTabState extends State<FeedTab> {
   @override
   void dispose() {
     if (_feedVideos.isNotEmpty) _pageController.dispose();
-    _phoneController.dispose();
+    // _phoneController.dispose();
     _currentScrollNotifier.dispose();
     _isGlobalMuted.dispose();
     super.dispose();
@@ -327,95 +327,96 @@ class _FeedTabState extends State<FeedTab> {
 
               return GestureDetector(
                 onTap: () {},
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(statefulContext).viewInsets.bottom + 30,
-                    top: 30,
-                    left: 30,
-                    right: 30,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SizedBox(
-                        width: 80,
-                        height: 80,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            const Icon(Icons.shield, size: 80, color: Colors.blueAccent),
-                            // Positioned slightly higher to visually center inside the shield's curves
-                            const Positioned(
-                              top: 18,
-                              child: MagenDavid(size:40, color: Colors.white, strokeWidth: 3.0),
-                            ),
-                          ],
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(statefulContext).viewInsets.bottom + 30,
+                      top: 30,
+                      left: 30,
+                      right: 30,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          width: 80,
+                          height: 80,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              const Icon(Icons.shield, size: 80, color: Colors.blueAccent),
+                              // Positioned slightly higher to visually center inside the shield's curves
+                              const Positioned(
+                                top: 18,
+                                child: MagenDavid(size:40, color: Colors.white, strokeWidth: 3.0),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text("map_dialog_title".tr(), textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 15),
-                      Text("map_verification_subtitle".tr(), textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey, fontSize: 16, height: 1.4)),
-                      const SizedBox(height: 40),
-                      TextField(
-                        controller: _phoneController,
-                        keyboardType: TextInputType.phone,
-                        keyboardAppearance: Brightness.dark,
-                        style: const TextStyle(color: Colors.white, fontSize: 20, letterSpacing: 2),
-                        textAlign: TextAlign.center,
-                        decoration: InputDecoration(
-                          hintText: "capture_hint".tr(),
-                          hintStyle: TextStyle(color: Colors.grey.withOpacity(0.5), fontSize: 16, letterSpacing: 0),
-                          filled: true,
-                          fillColor: const Color(0xFF1E293B),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-                          prefixIcon: const Icon(Icons.phone_android, color: Colors.grey),
+                        const SizedBox(height: 20),
+                        Text("map_dialog_title".tr(), textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
+                        const SizedBox(height: 15),
+                        Text("map_verification_subtitle".tr(), textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey, fontSize: 16, height: 1.4)),
+                        const SizedBox(height: 40),
+                        TextField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          keyboardAppearance: Brightness.dark,
+                          style: const TextStyle(color: Colors.white, fontSize: 20, letterSpacing: 2),
+                          textAlign: TextAlign.center,
+                          decoration: InputDecoration(
+                            hintText: "capture_hint".tr(),
+                            hintStyle: TextStyle(color: Colors.grey.withOpacity(0.5), fontSize: 16, letterSpacing: 0),
+                            filled: true,
+                            fillColor: const Color(0xFF1E293B),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+                            prefixIcon: const Icon(Icons.phone_android, color: Colors.grey),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 30),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(statefulContext).primaryColor,
-                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                        ),
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text("map_verify_action_btn".tr(), style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
-                        ),
-                        onPressed: () async {
-                          FocusScope.of(statefulContext).unfocus();
-                          String contactInfo = _phoneController.text.replaceAll(RegExp(r'[^0-9]'), '');
-
-                          if (contactInfo.length < 9) {
-                            _showError("capture_error_phone".tr());
-                            return;
-                          }
-
-                          try {
-                            final result = await di<AppState>().processPhoneAuth(
-                              contactInfo,
-                              {}, // No extra payload needed here
-                            );
-
-                            if (result.isAlreadyVerified) {
-                              Navigator.of(bottomSheetContext).pop();
-                              setState(() {});
-                            } else {
-                              setModalState(() {
-                                setState(() {
-                                  _pendingPhone = result.phone;
-                                  _authCode = result.authCode;
-                                });
-                              });
+                        const SizedBox(height: 30),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(statefulContext).primaryColor,
+                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text("map_verify_action_btn".tr(), style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
+                          ),
+                          onPressed: () async {
+                            FocusScope.of(statefulContext).unfocus();
+                            String contactInfo = _phoneController.text.replaceAll(RegExp(r'[^0-9]'), '');
+                  
+                            if (contactInfo.length < 9) {
+                              _showError("capture_error_phone".tr());
+                              return;
                             }
-                          } catch (e) {
-                            _showError("map_err_save".tr());
-                          }
-                        },
-                      ),
-                    ],
+                  
+                            try {
+                              final result = await di<AppState>().processPhoneAuth(
+                                contactInfo,
+                                {}, // No extra payload needed here
+                              );
+                  
+                              if (result.isAlreadyVerified) {
+                                if (mounted) Navigator.of(bottomSheetContext).pop(); // <-- Add if (mounted)                                setState(() {});
+                              } else {
+                                setModalState(() {
+                                  setState(() {
+                                    _pendingPhone = result.phone;
+                                    _authCode = result.authCode;
+                                  });
+                                });
+                              }
+                            } catch (e) {
+                              _showError("map_err_save".tr());
+                            }
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -439,6 +440,7 @@ class _FeedTabState extends State<FeedTab> {
   }
 
   void _showError(String message) {
+    if (!mounted) return; // <-- Add this shield
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
   }
 
@@ -1003,6 +1005,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+
                 TweenAnimationBuilder<double>(
                   tween: Tween(begin: 0.0, end: 1.0),
                   duration: const Duration(milliseconds: 1200),

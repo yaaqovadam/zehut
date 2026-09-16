@@ -36,19 +36,25 @@ app.post("/processAndDeployVideo", async (req, res) => {
   try {
     console.log(`Processing ${url} [${startSec}s - ${endSec}s]...`);
 
-    await ytDlp(url, {
-      downloadSections: `*${startSec}-${endSec}`,
-      mergeOutputFormat: "mp4",
-      output: tempFilePath,
-      cookies: "cookies.txt",
-      noWarnings: true,
-      forceOverwrites: true,
-    });
+await ytDlp(url, {
+  downloadSections: `*${startSec}-${endSec}`,
+  format: "bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+  mergeOutputFormat: "mp4",
+  extractorArgs: "youtube:player_client=ios", // <-- The magic bypass
+  postprocessorArgs: [
+    "-c:v", "copy",
+    "-c:a", "aac",
+    "-movflags", "+faststart"
+  ],
+  output: tempFilePath,
+  noWarnings: true,
+  forceOverwrites: true,
+});
 
     if (!fs.existsSync(tempFilePath)) {
       throw new Error("Download finished but output file not found");
     }
-
+////test
     console.log("Generating thumbnail...");
     execSync(`ffmpeg -i "${tempFilePath}" -ss 00:00:01 -vframes 1 "${thumbFilePath}" -y`);
 
@@ -75,8 +81,7 @@ app.post("/processAndDeployVideo", async (req, res) => {
     console.log("Uploading HTML to Cloudflare R2...");
     const htmlFileName = `${docId}.html`;
     const exactLink = `https://gamfeiglintzadak.co.il/${htmlFileName}`;
-    const thumbUrl = `https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/${docId}.jpg`;
-
+    const thumbUrl = `https://gamfeiglintzadak.co.il/${docId}.jpg`;
     const htmlContent = `<!DOCTYPE html>
 <html lang="he">
 <head>

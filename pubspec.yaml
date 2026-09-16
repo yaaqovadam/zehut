@@ -55,6 +55,12 @@ dependencies:
   firebase_storage: ^13.4.6
   web: ^1.1.1
   firebase_auth: ^6.6.1
+  cloud_functions: ^6.4.0
+  youtube_explode_dart: ^2.2.1
+  ffmpeg_kit_flutter_min_gpl: ^6.0.3
+  path_provider: ^2.1.2
+  http: ^1.2.0
+  minio: ^3.5.8
 
 
 dev_dependencies:
