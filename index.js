@@ -62,7 +62,7 @@ app.post("/processAndDeployVideo", async (req, res) => {
     console.log("Generating thumbnail...");
     execSync(`ffmpeg -i "${rawFilePath}" -ss 00:00:01 -vframes 1 "${thumbFilePath}" -y`);
 
-    // STEP 2: THE CHOP SHOP (Restoring the 12:12 Dynamic Blur for 9:16 Screens)
+    // STEP 2: THE CHOP SHOP (12:12 Dynamic Blur + iOS Compatibility)
     console.log("Checking video dimensions...");
     const dimensions = execSync(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "${rawFilePath}"`).toString().trim();
     const [vidWidth, vidHeight] = dimensions.split('x').map(Number);
@@ -157,3 +157,4 @@ if ('caches' in window) { caches.keys().then(function(names) { for (let name of 
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
+// Force GitHub deployment ping 1789560613
