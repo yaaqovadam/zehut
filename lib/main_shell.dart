@@ -29,8 +29,6 @@ class MainShell extends WatchingWidget {
       isPWA = web.window.matchMedia('(display-mode: standalone)').matches;
     }
 
-    final double customBottomPadding = isPWA ? 20.0 : 0.0;
-
     final List<Widget> views = [
       const FeedTab(),
       const VanguardTab(),
@@ -38,11 +36,10 @@ class MainShell extends WatchingWidget {
       const ActionTab(),
     ];
 
-// Clean the phone number just in case it has +972
-// 1. Grab the phone number from the AppState (ADD THIS LINE)
+    // Grab the phone number from the AppState
     final phone = watchValue((AppState s) => s.userPhone);
 
-    // 2. Clean the phone number just in case it has +972
+    // Clean the phone number just in case it has +972
     String safePhone = "guest";
     if (phone != null && phone.isNotEmpty) {
       safePhone = phone.replaceAll('+972', '0');
@@ -143,10 +140,6 @@ class MainShell extends WatchingWidget {
                 builder: (context) => IconButton(
                   icon: const Icon(Icons.menu, size: 32, color: Colors.black),
                   onPressed: () {
-                    // if (kIsWeb) {
-                    //   // html.window.dispatchEvent(html.CustomEvent('showInstallPrompt'));
-                    //   html.window.dispatchEvent(html.CustomEvent('showInstallPrompt', detail: context.locale.languageCode));
-                    // }
                     Scaffold.of(context).openEndDrawer();
                   },
                 ),
@@ -155,7 +148,10 @@ class MainShell extends WatchingWidget {
             ],
           ),
           body: views[currentIndex],
+
           bottomNavigationBar: Container(
+            height: 85, // Increased by 10px to accommodate the buffer
+            padding: const EdgeInsets.only(top: 10.0), // Creates a 10px un-clickable dead zone at the top
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border(
@@ -172,24 +168,15 @@ class MainShell extends WatchingWidget {
                 ),
               ],
             ),
-            padding: EdgeInsets.only(bottom: customBottomPadding),
-            child: MediaQuery.removePadding(
-              context: context,
-              removeBottom: true,
-              child: BottomNavigationBar(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                type: BottomNavigationBarType.fixed,
-                currentIndex: currentIndex,
-                onTap: (index) => di<AppState>().setNavIndex(index),
-                items: [
-                  BottomNavigationBarItem(icon: const Icon(Icons.play_circle_fill), label: 'tab_feed'.tr()),
-                  BottomNavigationBarItem(icon: const Icon(Icons.shield), label: 'tab_vanguard'.tr()),
-                  BottomNavigationBarItem(icon: const Icon(Icons.view_carousel), label: 'tab_100_days'.tr()),
-                  BottomNavigationBarItem(icon: const Icon(Icons.group), label: 'tab_action'.tr()),
+            child: SafeArea(
+              bottom: true,
+              child: Row(
+                children: [
+                  _buildNavItem(icon: Icons.play_circle_fill, label: 'tab_feed'.tr(), index: 0, currentIndex: currentIndex),
+                  _buildNavItem(icon: Icons.shield, label: 'tab_vanguard'.tr(), index: 1, currentIndex: currentIndex),
+                  _buildNavItem(icon: Icons.view_carousel, label: 'tab_100_days'.tr(), index: 2, currentIndex: currentIndex),
+                  _buildNavItem(icon: Icons.group, label: 'tab_action'.tr(), index: 3, currentIndex: currentIndex),
                 ],
-                selectedItemColor: Colors.lightBlue,
-                unselectedItemColor: const Color(0xFF103856).withOpacity(0.5),
               ),
             ),
           ),
@@ -197,4 +184,59 @@ class MainShell extends WatchingWidget {
       },
     );
   }
+}
+
+
+Widget _buildNavItem({
+  required IconData icon,
+  required String label,
+  required int index,
+  required int currentIndex,
+}) {
+  final isSelected = currentIndex == index;
+  final color = isSelected ? const Color(0xFF103856) : const Color(0xFF103856).withOpacity(0.5);
+
+  return Expanded(
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => di<AppState>().setNavIndex(index),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Transform.translate(
+              offset: const Offset(0, -4),
+              child: isSelected
+                  ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12.0),
+                ),
+                child: Icon(icon, size: 40.0, color: color),
+              )
+                  : Icon(icon, size: 40.0, color: color),
+            ),
+            Transform.translate(
+              offset: const Offset(0, -8),
+              child: Container(
+                color: Colors.transparent,
+                padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 4.0, bottom: 8.0),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                    height: 1.0,
+                    color: color,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

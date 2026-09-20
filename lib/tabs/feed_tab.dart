@@ -1243,22 +1243,36 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 
   Widget _buildActionButton(IconData icon, String label, Color color, {VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 35),
-            const SizedBox(height: 4),
-            Text(label, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-          ],
+    return Padding(
+      // The dead zone: keeps the visual layout identical but lifts the tap target away from the bottom bar
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          // Reduced the vertical padding to shrink the clickable area
+          padding: const EdgeInsets.only(left: 10, right: 10, top: 8, bottom: 2),
+          child: Column(
+            mainAxisSize: MainAxisSize.min, // Ensures the tap target wraps tightly around the content
+            children: [
+              Icon(icon, color: color, size: 35),
+              // Removed the 4px SizedBox to pull the text flush against the icon
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  height: 1.1, // Tightens the invisible box around the text
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
-  }
-}
+  }}
 
 
 
