@@ -140,6 +140,10 @@
   "deploy_btn": "חתוך והעלה",
   "deploy_err_fields": "אנא מלא את כל השדות",
   "deploy_success": "הסרטון עלה ונשמר בהצלחה!",
-  "deploy_err_fail": "שגיאה בהעלאה: "
+  "deploy_err_fail": "שגיאה בהעלאה: ",
+  "edit_file_name_label": "שם הקובץ (משנה מסד נתונים וקישורים)",
+  "edit_file_name_helper": "אזהרה: חובה לשנות את השם גם בקלאודפלייר",
+  "edit_requires_auth": "דורש אימות (הרשמה):",
+  "edit_online": "באוויר (אונליין):"
 }
 

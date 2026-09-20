@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -391,7 +392,7 @@ class _ActionTabState extends State<ActionTab> {
                       if (data != null && (v == true || v == 'true') && _pendingPhone != null) {
 
                         final String verifiedPhone = _pendingPhone!;
-                        final String masterUid = data['uid'] ?? generateSecureToken();
+                        String masterUid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
                         WidgetsBinding.instance.addPostFrameCallback((_) async {
                           if (_pendingPhone == null) return;

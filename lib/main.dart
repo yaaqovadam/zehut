@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -42,6 +43,16 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+// Force the app to remember the UID permanently
+  await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+
+  if (FirebaseAuth.instance.currentUser == null) {
+    await FirebaseAuth.instance.signInAnonymously();
+  }
+
+  final currentUid = FirebaseAuth.instance.currentUser?.uid;
+  debugPrint("🔥 LOCKED UID: $currentUid");
 
   // await _seedDatabaseOnce(); // 👈 Add this line here just onceawait _seedDatabaseOnce(); // 👈 Add this line here just once
   // 👈 THE FIX: Stop web from crashing by ignoring mobile-only UI commands

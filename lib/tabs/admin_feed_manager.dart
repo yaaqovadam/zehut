@@ -10,6 +10,9 @@ import 'package:ffmpeg_kit_flutter_min_gpl/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_min_gpl/return_code.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../sync_studio/sync_studio_screen.dart';
+import 'feed_tab.dart';
+
 class AdminFeedManager extends StatefulWidget {
   const AdminFeedManager({super.key});
 
@@ -69,14 +72,46 @@ class _AdminFeedManagerState extends State<AdminFeedManager> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextField(controller: fileNameController, style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold), decoration: const InputDecoration(labelText: 'File Name (Changes DB & URLs)', labelStyle: TextStyle(color: Colors.redAccent), helperText: 'Warning: Must rename in Cloudflare later')),
+                    TextField(
+                        controller: fileNameController,
+                        style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                        decoration: InputDecoration(
+                            labelText: 'edit_file_name_label'.tr(),
+                            labelStyle: const TextStyle(color: Colors.redAccent),
+                            helperText: 'edit_file_name_helper'.tr()
+                        )
+                    ),
                     const SizedBox(height: 10),
                     TextField(controller: titleController, style: const TextStyle(color: Colors.black87), decoration: InputDecoration(labelText: 'field_title'.tr(), labelStyle: const TextStyle(color: Colors.black54))),
                     TextField(controller: subtitleController, style: const TextStyle(color: Colors.black87), decoration: InputDecoration(labelText: 'field_subtitle'.tr(), labelStyle: const TextStyle(color: Colors.black54))),
                     TextField(controller: likesController, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.black87), decoration: InputDecoration(labelText: 'field_likes'.tr(), labelStyle: const TextStyle(color: Colors.black54))),
                     const SizedBox(height: 15),
-                    SwitchListTile(title: const Text('Requires Auth:', style: TextStyle(color: Color(0xFF103856), fontWeight: FontWeight.w500)), value: isLocked, activeColor: Colors.white, activeTrackColor: Colors.lightBlue, inactiveThumbColor: Colors.grey.shade400, inactiveTrackColor: Colors.grey.shade200, contentPadding: EdgeInsets.zero, onChanged: (val) { setModalState(() { isLocked = val; }); doc.reference.update({'isLocked': val}); }),
-                    SwitchListTile(title: const Text('Online:', style: TextStyle(color: Color(0xFF103856), fontWeight: FontWeight.w500)), value: isOnline, activeColor: Colors.white, activeTrackColor: Colors.lightBlue, inactiveThumbColor: Colors.grey.shade400, inactiveTrackColor: Colors.grey.shade200, contentPadding: EdgeInsets.zero, onChanged: (val) { setModalState(() { isOnline = val; }); doc.reference.update({'online': val}); }),
+                    SwitchListTile(
+                        title: Text('edit_requires_auth'.tr(), style: const TextStyle(color: Color(0xFF103856), fontWeight: FontWeight.w500)),
+                        value: isLocked,
+                        activeColor: Colors.white,
+                        activeTrackColor: Colors.lightBlue,
+                        inactiveThumbColor: Colors.grey.shade400,
+                        inactiveTrackColor: Colors.grey.shade200,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (val) {
+                          setModalState(() { isLocked = val; });
+                          doc.reference.update({'isLocked': val}); // 🎯 Real-time DB update
+                        }
+                    ),
+                    SwitchListTile(
+                        title: Text('edit_online'.tr(), style: const TextStyle(color: Color(0xFF103856), fontWeight: FontWeight.w500)),
+                        value: isOnline,
+                        activeColor: Colors.white,
+                        activeTrackColor: Colors.lightBlue,
+                        inactiveThumbColor: Colors.grey.shade400,
+                        inactiveTrackColor: Colors.grey.shade200,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (val) {
+                          setModalState(() { isOnline = val; });
+                          doc.reference.update({'online': val}); // 🎯 Real-time DB update
+                        }
+                    ),
                   ],
                 ),
               ),
@@ -227,26 +262,39 @@ class _AdminFeedManagerState extends State<AdminFeedManager> {
                     padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
                     child: Row(
                       children: [
-                        // 🎯 THE CLICKABLE FILM REEL ICON
+                        // 🎯 THE BULLETPROOF CLICKABLE MOVIE TICKET (Internal Navigation)
+                        // 🎯 NO MORE SQUARE BOX - Pure Film Icon + Circular Number Badge
+                        // 🎯 REVERTED: The original simple Light Blue circle, wired up safely.
                         InkWell(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(20),
                           onTap: () {
-                            final String? videoUrl = data['url'];
-                            if (videoUrl != null && videoUrl.isNotEmpty) {
-                              html.window.open(videoUrl, '_blank');
-                            }
-                          },
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Icon(Icons.movie, color: isOnline ? Colors.lightBlue : Colors.grey.shade500, size: 44),
-                              Positioned(
-                                child: Text(
-                                  data['index'].toString(),
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => Scaffold(
+                                  appBar: AppBar(
+                                    backgroundColor: const Color(0xFF103856),
+                                    iconTheme: const IconThemeData(color: Colors.white),
+                                    title: Text(
+                                      data['title'] ?? 'Preview',
+                                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                    ),
+                                    leading: IconButton(
+                                      icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+                                      onPressed: () => Navigator.pop(context),
+                                    ),
+                                  ),
+                                  body: FeedTab(targetVideoId: docs[index].id),
                                 ),
                               ),
-                            ],
+                            );
+                          },
+                          child: CircleAvatar(
+                            backgroundColor: isOnline ? Colors.lightBlue : Colors.grey.shade500,
+                            child: Text(
+                              data['index'].toString(),
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -268,7 +316,9 @@ class _AdminFeedManagerState extends State<AdminFeedManager> {
                         Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            InkWell(onTap: () => _showEditDialog(docs[index]), child: const Icon(Icons.edit, color: Colors.lightBlue, size: 26)),
+                            InkWell(onTap: () => Navigator.push(context, MaterialPageRoute(
+                              builder: (context) => SyncStudioScreen( docId: docs[index].id, videoUrl: data['url']),
+                            )), child: const Icon(Icons.edit, color: Colors.lightBlue, size: 26)),
                             const SizedBox(height: 12),
                             Transform.translate(offset: const Offset(0, 3), child: InkWell(onTap: () => _confirmDelete(docs[index], docs), child: const Icon(Icons.delete, color: Colors.red, size: 24))),
                           ],
@@ -345,8 +395,7 @@ class _VideoDeployWidgetState extends State<VideoDeployWidget> {
       final String safeTitle = title.replaceAll(RegExp(r'[^a-zA-Z0-9א-ת]'), '-');
       final String fileName = '$safeTitle.mp4';
       final String docId = safeTitle;
-      final String r2BaseUrl = "https://gamfeiglintzadak.co.il/";
-
+      final String r2BaseUrl = "https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/";
       debugPrint("Triggering Railway Cloud Extractor...");
       final response = await http.post(
         Uri.parse('https://zehut-server-production.up.railway.app/processAndDeployVideo'),
@@ -413,56 +462,72 @@ class _VideoDeployWidgetState extends State<VideoDeployWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-          title: Text('deploy_title'.tr(), style: const TextStyle(color: Colors.white)),
-          backgroundColor: const Color(0xFF103856),
-          automaticallyImplyLeading: false
-      ),
-      body: SingleChildScrollView(
-        // 🎯 REDUCED PADDING AND ADDED BOTTOM PADDING
-        padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 24.0, bottom: 20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('deploy_pipeline'.tr(), style: const TextStyle(color: Colors.lightBlue, fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-            const SizedBox(height: 29), // 🎯 +5px SPACING
-            _buildTextField(controller: _titleController, label: 'deploy_clip_title'.tr(), enabled: !_isDeploying),
-            const SizedBox(height: 21), // 🎯 +5px SPACING
-            _buildTextField(controller: _urlController, label: 'deploy_url'.tr(), enabled: !_isDeploying),
-            const SizedBox(height: 21), // 🎯 +5px SPACING
-            Row(
+    // 🎯 Replaced Scaffold with Material + shrink-wrapping Column to kill the white space
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min, // 🎯 This is the magic shrink-wrap command
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 🎯 Custom AppBar replacement so it fits inside the Material wrap
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: const BoxDecoration(
+              color: Color(0xFF103856),
+              borderRadius: BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
+            ),
+            child: Text(
+              'deploy_title'.tr(),
+              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 24.0, bottom: 20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: _buildTextField(controller: _startController, label: 'deploy_start'.tr(), isNumber: true, enabled: !_isDeploying)),
-                const SizedBox(width: 16),
-                Expanded(child: _buildTextField(controller: _endController, label: 'deploy_end'.tr(), isNumber: true, enabled: !_isDeploying)),
+                Text('deploy_pipeline'.tr(), style: const TextStyle(color: Colors.lightBlue, fontSize: 18, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                const SizedBox(height: 24),
+                _buildTextField(controller: _titleController, label: 'deploy_clip_title'.tr(), enabled: !_isDeploying),
+                const SizedBox(height: 16),
+                _buildTextField(controller: _urlController, label: 'deploy_url'.tr(), enabled: !_isDeploying),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    // 🎯 Passed isSmall: true to shrink the label font and prevent clipping
+                    Expanded(child: _buildTextField(controller: _startController, label: 'deploy_start'.tr(), isNumber: true, enabled: !_isDeploying, isSmall: true)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _buildTextField(controller: _endController, label: 'deploy_end'.tr(), isNumber: true, enabled: !_isDeploying, isSmall: true)),
+                  ],
+                ),
+                const SizedBox(height: 28),
+                SizedBox(
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _isDeploying ? null : _deployVideo,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _isDeploying ? Colors.grey.shade300 : Colors.lightBlue,
+                      foregroundColor: _isDeploying ? Colors.grey.shade500 : Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      disabledBackgroundColor: Colors.grey.shade300,
+                    ),
+                    child: _isDeploying
+                        ? const CircularProgressIndicator(color: Colors.lightBlue)
+                        : Text('deploy_btn'.tr(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 37), // 🎯 +5px SPACING
-            SizedBox(
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _isDeploying ? null : _deployVideo,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _isDeploying ? Colors.grey.shade300 : Colors.lightBlue,
-                  foregroundColor: _isDeploying ? Colors.grey.shade500 : Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  disabledBackgroundColor: Colors.grey.shade300,
-                ),
-                child: _isDeploying
-                    ? const CircularProgressIndicator(color: Colors.lightBlue)
-                    : Text('deploy_btn'.tr(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildTextField({required TextEditingController controller, required String label, bool isNumber = false, bool enabled = true}) {
+  Widget _buildTextField({required TextEditingController controller, required String label, bool isNumber = false, bool enabled = true, bool isSmall = false}) {
     return TextField(
       controller: controller,
       enabled: enabled,
@@ -470,11 +535,11 @@ class _VideoDeployWidgetState extends State<VideoDeployWidget> {
       style: const TextStyle(color: Colors.lightBlue, fontWeight: FontWeight.w600),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: Colors.grey.shade600),
+        // 🎯 Reduces font size slightly if it's a small field to fit the Hebrew text
+        labelStyle: TextStyle(color: Colors.grey.shade600, fontSize: isSmall ? 12.5 : 14.5),
         filled: true,
         fillColor: Colors.grey.shade200,
-        // 🎯 TIGHTENED INTERNAL PADDING TO PREVENT TEXT CLIPPING
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         disabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(8)),
         enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
         focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.lightBlue), borderRadius: BorderRadius.circular(8)),

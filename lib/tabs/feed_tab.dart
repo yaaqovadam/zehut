@@ -18,7 +18,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 bool sessionAudioUnlocked = false;
 
 class FeedTab extends StatefulWidget {
-  const FeedTab({super.key});
+  final String? targetVideoId; // 🎯 Added this parameter to catch the incoming video ID
+
+  const FeedTab({super.key, this.targetVideoId});
 
   @override
   State<FeedTab> createState() => _FeedTabState();
@@ -30,7 +32,6 @@ class _FeedTabState extends State<FeedTab> {
   late PageController _pageController;
   bool sessionAudioUnlocked = false;
 
-
   final ValueNotifier<int> _currentScrollNotifier = ValueNotifier<int>(0);
   final ValueNotifier<bool> _isGlobalMuted = ValueNotifier<bool>(true);
 
@@ -39,11 +40,13 @@ class _FeedTabState extends State<FeedTab> {
   final TextEditingController _phoneController = TextEditingController();
   bool _hasSwipedFeed = false;
 
+  StreamSubscription<QuerySnapshot>? _feedSubscription; // 🎯 Auto-update listener
 
   int _getActual(int i) {
     if (_feedVideos.isEmpty) return 0;
     return (i % _feedVideos.length + _feedVideos.length) % _feedVideos.length;
   }
+
   void _nukeSafariPlayButton() {
     if (kIsWeb) {
       if (html.document.getElementById('nuke-safari-button') == null) {
@@ -65,20 +68,20 @@ class _FeedTabState extends State<FeedTab> {
   @override
   void initState() {
     super.initState();
-    _nukeSafariPlayButton(); // 🔥 Injects the CSS at runtime
+    _nukeSafariPlayButton();
     _fetchFeedFromFirebase();
     SharedPreferences.getInstance().then((prefs) {
       if (mounted) setState(() => _hasSwipedFeed = prefs.getBool('has_swiped_feed') ?? false);
     });
   }
-  Future<void> _fetchFeedFromFirebase({int retryCount = 0}) async {
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('feeds')
-          .orderBy('index', descending: false)
-          .get();
 
-      // 🎯 CLIENT-SIDE FILTER: Skips any video where 'online' is explicitly false
+  void _fetchFeedFromFirebase() {
+    _feedSubscription?.cancel();
+    _feedSubscription = FirebaseFirestore.instance
+        .collection('feeds')
+        .orderBy('index', descending: false)
+        .snapshots() // 🎯 Real-time listener: instantly catches new uploads!
+        .listen((snapshot) {
       final List<Map<String, dynamic>> loadedVideos = snapshot.docs
           .where((doc) {
         final data = doc.data();
@@ -94,67 +97,62 @@ class _FeedTabState extends State<FeedTab> {
           'thumb': data['thumb'] ?? '',
           'like_count': data['like_count'] ?? 0,
           'isLocked': data['isLocked'] == true || data['isLocked'] == 'true',
-          'online': data['online'] ?? true, // Defaults to true if missing
+          'online': data['online'] ?? true,
         };
       }).toList();
 
       if (mounted) {
+        final bool isFirstLoad = _feedVideos.isEmpty;
         setState(() {
           _feedVideos = loadedVideos;
           _isLoadingFeed = false;
         });
 
-        if (_feedVideos.isNotEmpty) {
+        if (isFirstLoad && _feedVideos.isNotEmpty) {
           int startingIndex = 0;
-          if (kIsWeb) {
+
+          // 🎯 1. First, check if the Admin panel sent us a specific video ID
+          if (widget.targetVideoId != null) {
+            int foundIndex = _feedVideos.indexWhere((v) => v['id'] == widget.targetVideoId);
+            if (foundIndex != -1) {
+              startingIndex = foundIndex;
+            }
+          }
+          // 2. Otherwise, fall back to checking the web HTML metadata
+          else if (kIsWeb) {
             try {
-              // 1. Look for the exact Firestore Document ID in the HTML head
               final metaTag = html.document.querySelector('meta[name="video-id"]');
               if (metaTag != null) {
                 final targetId = metaTag.attributes['content'];
                 if (targetId != null) {
-                  // 2. Search your loaded Firebase list for that specific ID
                   int foundIndex = _feedVideos.indexWhere((v) => v['id'] == targetId);
                   if (foundIndex != -1) {
-                    startingIndex = foundIndex; // 3. Dynamically set the start point
+                    startingIndex = foundIndex;
                   }
                 }
               }
             } catch (_) {}
-
-            if (startingIndex >= _feedVideos.length || startingIndex < 0) {
-              startingIndex = 0;
-            }
           }
+
+          if (startingIndex >= _feedVideos.length || startingIndex < 0) {
+            startingIndex = 0;
+          }
+
           int virtualMiddleIndex = (_feedVideos.length * 500) + startingIndex;
           _currentScrollNotifier.value = virtualMiddleIndex;
           _pageController = PageController(initialPage: virtualMiddleIndex);
         }
       }
-    } catch (e) {
-      print("🚨 FAILED TO LOAD FEED (Attempt ${retryCount + 1}): $e");
-
-      if (retryCount < 3 && mounted) {
-        await Future.delayed(const Duration(milliseconds: 600));
-        return _fetchFeedFromFirebase(retryCount: retryCount + 1);
-      }
-
+    }, onError: (e) {
+      debugPrint("🚨 FAILED TO LISTEN TO FEED: $e");
       if (mounted) setState(() => _isLoadingFeed = false);
-    }
-  }
-  // 👆 --- TO RIGHT HERE --- 👆
-
-  void _setGlobalMute(bool isMuted) async {
-    if (_isGlobalMuted.value == isMuted) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('feed_is_muted', isMuted);
-    _isGlobalMuted.value = isMuted;
+    });
   }
 
   @override
   void dispose() {
+    _feedSubscription?.cancel(); // 🎯 Clean up the listener
     if (_feedVideos.isNotEmpty) _pageController.dispose();
-    // _phoneController.dispose();
     _currentScrollNotifier.dispose();
     _isGlobalMuted.dispose();
     super.dispose();
@@ -231,22 +229,23 @@ class _FeedTabState extends State<FeedTab> {
                       var v = data?['verified'];
                       if (data != null && (v == true || v == 'true') && _pendingPhone != null) {
                         final String verifiedPhone = _pendingPhone!;
-                        final String masterUid = data['uid'] ?? generateSecureToken();
 
                         WidgetsBinding.instance.addPostFrameCallback((_) async {
                           if (_pendingPhone == null) return;
 
-                          setState(() {
-                            _pendingPhone = null;
-                            _authCode = null;
-                          });
+                          // 🎯 1. Pop the sheet FIRST while bottomSheetContext is completely mounted
+                          if (bottomSheetContext.mounted) {
+                            Navigator.of(bottomSheetContext).pop();
+                          }
 
-                          Navigator.of(bottomSheetContext).pop();
+                          // 🎯 2. Save credentials to local storage
                           await di<AppState>().savePhone(verifiedPhone);
 
+                          // 🎯 3. Clear temporary state
                           if (mounted) {
-                            Future.delayed(const Duration(milliseconds: 400), () {
-                              if (mounted) setState(() {});
+                            setState(() {
+                              _pendingPhone = null;
+                              _authCode = null;
                             });
                           }
                         });
@@ -388,20 +387,25 @@ class _FeedTabState extends State<FeedTab> {
                           onPressed: () async {
                             FocusScope.of(statefulContext).unfocus();
                             String contactInfo = _phoneController.text.replaceAll(RegExp(r'[^0-9]'), '');
-                  
+
                             if (contactInfo.length < 9) {
                               _showError("capture_error_phone".tr());
                               return;
                             }
-                  
+
                             try {
                               final result = await di<AppState>().processPhoneAuth(
                                 contactInfo,
-                                {}, // No extra payload needed here
+                                {},
                               );
-                  
+
                               if (result.isAlreadyVerified) {
-                                if (mounted) Navigator.of(bottomSheetContext).pop(); // <-- Add if (mounted)                                setState(() {});
+                                // 🎯 Save to state so lock overlay clears
+                                await di<AppState>().savePhone(contactInfo);
+                                if (bottomSheetContext.mounted) {
+                                  Navigator.of(bottomSheetContext).pop();
+                                }
+                                if (mounted) setState(() {});
                               } else {
                                 setModalState(() {
                                   setState(() {
@@ -425,6 +429,12 @@ class _FeedTabState extends State<FeedTab> {
         );
       },
     );
+  }
+  void _setGlobalMute(bool isMuted) async {
+    if (_isGlobalMuted.value == isMuted) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('feed_is_muted', isMuted);
+    _isGlobalMuted.value = isMuted;
   }
 
   void _showTopToast(BuildContext context, String message) {
@@ -564,23 +574,35 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   bool _hasTappedInitialPlay = false;
 
 
-  // Future<void> _initFeed() async {
-  //   final isAdminUser = true;
-  //   // if (!mounted) return;
-  //   //
-  //   // setState(() {
-  //   //   isAdmin = isAdminUser;
-  //   //   isLoading = false;
-  //   // });
-  //   setState(() {
-  //     isAdmin = true;
-  //     isLoading = false;
-  //   });
-  // }
+  Future<void> _initFeed() async {
+    if (!mounted) return;
+
+    bool isAdminUser = false;
+    final String? phone = di<AppState>().userPhone.value;
+
+    if (phone != null && phone.isNotEmpty) {
+      try {
+        final doc = await FirebaseFirestore.instance.collection('admins').doc(phone).get();
+        if (doc.exists && doc.data()?['isAdmin'] == true) {
+          isAdminUser = true;
+        }
+      } catch (e) {
+        debugPrint("Admin check failed: $e");
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        isAdmin = isAdminUser;
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   void initState() {
-    super.initState();
+    super.initState();;
+    _initFeed();
     likeCount = widget.videoData['like_count'] is int
         ? widget.videoData['like_count']
         : int.tryParse(widget.videoData['like_count']?.toString() ?? '0') ?? 0;
@@ -667,9 +689,13 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted && widget.isVisible && _controller == ctrl) {
         setState(() => _isShowingSwipeGate = false);
-        ctrl.seekTo(Duration.zero);
-        // 🛑 VIDEO STOPS HERE. NO AUTOPLAY. WAITS FOR GRANDMA TO TAP THE GLASS BUTTON.
-        setState(() => _isPlaying = false);
+
+        // Only autoplay if they haven't tapped yet. (If they tapped, _togglePlayPause handles it).
+        if (!sessionAudioUnlocked) {
+          ctrl.play().then((_) {
+            if (mounted) setState(() => _isPlaying = true);
+          });
+        }
       }
     });
   }
@@ -684,6 +710,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       if (!sessionAudioUnlocked) {
         _controller!.pause();
         setState(() => _isPlaying = false);
+        if (!widget.hasSwipedFeed) _triggerTutorialGate(_controller!); // <-- Add here
       } else {
         _controller!.play().then((_) {
           _startUiHideTimer();
@@ -732,8 +759,14 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         if (newController.value.isInitialized &&
             newController.value.duration > Duration.zero &&
             newController.value.position >= newController.value.duration) {
-          newController.seekTo(Duration.zero);
-          newController.play();
+
+          // 🔥 If they still haven't swiped when the video ends, trigger the gate and pause
+          if (!widget.hasSwipedFeed) {
+            _triggerTutorialGate(newController);
+          } else {
+            newController.seekTo(Duration.zero);
+            newController.play();
+          }
         }
       });
 
@@ -741,6 +774,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       if (!sessionAudioUnlocked) {
         newController.pause();
         setState(() => _isPlaying = false);
+        if (!widget.hasSwipedFeed) _triggerTutorialGate(newController); // <-- And add here
       } else {
         newController.play().then((_) {
           if (!mounted || _controller != newController) return;
@@ -778,6 +812,11 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   void _togglePlayPause() {
     _onUserInteraction();
+
+    // 🔥 KILL THE GATE INSTANTLY ON ANY TAP
+    if (_isShowingSwipeGate) {
+      setState(() => _isShowingSwipeGate = false);
+    }
 
     if (widget.isLocked) {
       widget.onUnlockTap();
@@ -997,37 +1036,39 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         // 4. Initial Blue Glass Marble (First load only, isolated to specific video ID)
         // _buildMarbleButton(),
 
-        // 5. Grandpa Gate
-        if (_isShowingSwipeGate)
-          Container(
-            color: Colors.black.withOpacity(0.95),
-            alignment: Alignment.center,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 1200),
-                  curve: Curves.elasticOut,
-                  builder: (context, val, child) {
-                    return Padding(
-                      padding: EdgeInsets.only(bottom: val * 40),
-                      child: const Icon(Icons.touch_app, color: Colors.amber, size: 90),
-                    );
-                  },
+// 5. Grandpa Gate
+        if (!widget.hasSwipedFeed)
+          Positioned.fill(
+            child: IgnorePointer( // Lets the user tap the video to unmute
+              child: AnimatedOpacity(
+                opacity: _isShowingSwipeGate ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 800), // Smooth fade out
+                child: Container(
+                  color: Colors.black.withOpacity(0.85),
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.0, end: 1.0),
+                        duration: const Duration(milliseconds: 1200),
+                        curve: Curves.elasticOut,
+                        builder: (context, val, child) {
+                          return Padding(
+                            padding: EdgeInsets.only(bottom: val * 40),
+                            child: const Icon(Icons.touch_app, color: Colors.amber, size: 90),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 15),
+                      Text(
+                        "tutorial_swipe_up".tr(),
+                        style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 15),
-                Text(
-                  "tutorial_swipe_up".tr(),
-                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  "tutorial_video_starts_shortly".tr(),
-                  style: const TextStyle(color: Colors.grey, fontSize: 16),
-                ),
-              ],
+              ),
             ),
           ),
 
@@ -1102,6 +1143,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       // Heart Button
+                      // Heart Button
                       ValueListenableBuilder<List<String>>(
                         valueListenable: di<AppState>().savedClips,
                         builder: (context, savedClipsList, child) {
@@ -1115,11 +1157,19 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                                 isLiked ? Colors.red : Colors.white,
                                 onTap: () {
                                   _onUserInteraction();
-                                  if (!isLoggedIn) {
+
+                                  // 🛑 STRICT SECURITY GATE: Check both isLoggedIn AND the actual phone value
+                                  final bool hasValidPhone = di<AppState>().userPhone.value != null &&
+                                      di<AppState>().userPhone.value!.isNotEmpty;
+
+                                  if (!isLoggedIn || !hasValidPhone) {
+                                    // Trigger the exact same verification overlay used for locked videos
                                     widget.onUnlockTap();
+                                    // 🚨 CRITICAL: Exit immediately so the UI does not fake a successful like
                                     return;
                                   }
 
+                                  // Only fully verified users will reach this point
                                   final currentClips = List<String>.from(savedClipsList);
                                   setState(() {
                                     if (isLiked) {

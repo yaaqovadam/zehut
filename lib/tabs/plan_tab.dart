@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_card_swiper/flutter_card_swiper.dart';
@@ -467,7 +468,7 @@ class _PlanTabState extends State<PlanTab> {
                       int matchPercentage = (_score / _policies.length * 100).round();
 
                       try {
-                        String masterUid = generateSecureToken();
+                        String masterUid = FirebaseAuth.instance.currentUser?.uid ?? '';
                         DocumentSnapshot citizenDoc = await FirebaseFirestore.instance.collection('citizens').doc(contactInfo).get();
 
                         int currentA2hs = 0;
@@ -501,7 +502,7 @@ class _PlanTabState extends State<PlanTab> {
                           return;
                         }
 
-                        String newAuthCode = generateSecureToken();
+                        String newAuthCode = masterUid;
                         await FirebaseFirestore.instance.collection('citizens').doc(contactInfo).set({'phone': contactInfo, 'uid': masterUid, 'match_percentage': matchPercentage, 'source': 'swipe_quiz_tab3', 'timestamp_quiz': FieldValue.serverTimestamp(), 'auth_code': newAuthCode, 'verified': false, 'a2hs_count': currentA2hs}, SetOptions(merge: true));
 
                         setState(() {

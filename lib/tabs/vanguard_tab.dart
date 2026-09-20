@@ -49,8 +49,8 @@ class _VanguardTabState extends State<VanguardTab> {
               .replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
 
           String viralMessage = context.locale.languageCode == 'he'
-              ? "אחי, בדקתי עכשיו. לפי מגן המילואים של זהות, המדינה חייבת לי $savings ש״ח פטור ממס השנה על המילואים.\n\nבדוק כמה אתה אמור לקבל פה:\nhttps://zehut-100-days.web.app"
-              : "Bro, I just checked. Under Zehut's Reservist Shield, the state owes me $savings NIS in tax exemptions this year.\n\nCalculate your refund here:\nhttps://zehut-100-days.web.app";
+              ? "אחי, בדקתי עכשיו. לפי מגן המילואים של זהות, המדינה חייבת לי $savings ש״ח פטור ממס השנה על המילואים.\n\nבדוק כמה אתה אמור לקבל פה:\nhttps://gamfeiglintzadak.co.il/"
+              : "Bro, I just checked. Under Zehut's Reservist Shield, the state owes me $savings NIS in tax exemptions this year.\n\nCalculate your refund here:\nhttps://gamfeiglintzadak.co.il/";
 
           final xFile = XFile.fromData(
             imageBytes,

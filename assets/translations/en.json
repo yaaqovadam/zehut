@@ -144,7 +144,11 @@
   "deploy_btn": "RIP & DEPLOY",
   "deploy_err_fields": "Please fill all fields",
   "deploy_success": "Deployed & Saved to Feed!",
-  "deploy_err_fail": "Deployment Failed: "
+  "deploy_err_fail": "Deployment Failed: ",
+  "edit_file_name_label": "File Name (Changes DB & URLs)",
+  "edit_file_name_helper": "Warning: Must rename in Cloudflare later",
+  "edit_requires_auth": "Requires Auth:",
+  "edit_online": "Online:"
 
 
 }
