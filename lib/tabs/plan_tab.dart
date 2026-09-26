@@ -25,10 +25,9 @@ class PlanTab extends StatefulWidget {
 class _PlanTabState extends State<PlanTab> {
   final CardSwiperController controller = CardSwiperController();
   bool isFinished = false;
-  final TextEditingController _contactController = TextEditingController();
+
   final Key _swiperKey = UniqueKey();
-  String? _pendingPhone;
-  String? _authCode;
+
 
   int _score = 0;
   final List<bool> _swipeHistory = [];
@@ -46,11 +45,12 @@ class _PlanTabState extends State<PlanTab> {
     {"day": "pol_7_day", "title": "pol_7_title", "desc": "pol_7_desc", "icon": Icons.warning_amber_rounded, "color": const Color(0xFFF97316)},
     {"day": "pol_8_day", "title": "pol_8_title", "desc": "pol_8_desc", "icon": Icons.gavel, "color": const Color(0xFFE11D48)},
   ];
-// --- ADD THIS RIGHT HERE IN _PlanTabState ---
-
-  // ---------------------------------------------
-
-// 👉 ADD IT RIGHT HERE, inside _PlanTabState
+  String _formatForDatabase(String raw) {
+    String sanitized = raw.replaceAll(RegExp(r'[^0-9]'), '');
+    if (sanitized.startsWith('0')) return '+972${sanitized.substring(1)}';
+    if (!sanitized.startsWith('+')) return '+$sanitized';
+    return sanitized;
+  }
   @override
   void initState() {
     super.initState();
@@ -68,7 +68,6 @@ class _PlanTabState extends State<PlanTab> {
   @override
   void dispose() {
     controller.dispose();
-    _contactController.dispose();
     super.dispose();
   }
   //
@@ -126,9 +125,7 @@ class _PlanTabState extends State<PlanTab> {
                                 isFinished = false;
                                 _score = 0;
                                 _swipeHistory.clear();
-                                _contactController.clear();
-                                _pendingPhone = null;
-                                _authCode = null;
+
                               });
                             },
                           ),
@@ -189,9 +186,16 @@ class _PlanTabState extends State<PlanTab> {
                   isFinished = true;
                 });
 
+                // 1. If not logged in, pop the global sheet immediately
+                if (!di<AppState>().isLoggedIn.value) {
+                  await showUniversalAuthSheet(context);
+                }
+
+                // 2. If login succeeded (or already logged in), save the score
                 if (di<AppState>().isLoggedIn.value) {
-                  String? knownPhone = di<AppState>().userPhone.value;
-                  if (knownPhone != null) {
+                  String? rawPhone = di<AppState>().userPhone.value;
+                  if (rawPhone != null) {
+                    String knownPhone = _formatForDatabase(rawPhone);
                     int matchPercentage = (_score / _policies.length * 100).round();
                     await FirebaseFirestore.instance.collection('citizens').doc(knownPhone).set({
                       'phone': knownPhone,
@@ -245,283 +249,6 @@ class _PlanTabState extends State<PlanTab> {
     );
   }
 
-  Widget _buildCaptureScreen() {
-    // CAPTURE MAIN CONTEXT SO IT NEVER DIES
-    final parentContext = context;
-
-    if (_pendingPhone != null && _authCode != null) {
-      return StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance.collection('citizens').doc(_pendingPhone).snapshots(),
-        builder: (streamContext, snapshot) {
-          if (snapshot.hasData && snapshot.data!.exists) {
-            final data = snapshot.data!.data() as Map<String, dynamic>?;
-            var v = data?['verified'];
-
-            if (data != null && (v == true || v == 'true') && _pendingPhone != null) {
-              final String verifiedPhone = _pendingPhone!;
-
-              WidgetsBinding.instance.addPostFrameCallback((_) async {
-                if (_pendingPhone == null) return;
-
-                setState(() {
-                  _pendingPhone = null;
-                  _authCode = null;
-                  isFinished = true; // 🎯 Ensure they are marked as finished
-                });
-
-                await di<AppState>().savePhone(verifiedPhone);
-
-                // 🎯 NEW USER TRIGGER: Fires 3 seconds after they hit the score screen
-                Future.delayed(const Duration(seconds: 3), () {
-                  // _triggerInstallPrompt();
-                });
-              });
-            }
-          }
-
-          // --- SCREEN 2: THE VERIFICATION SCREEN (LOCK ICON) ---
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(30.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // 1. Updated Icon to use the Theme color
-                  Icon(Icons.lock_outline, size: 80, color: Theme.of(context).primaryColor),
-                  const SizedBox(height: 20),
-                  Text(
-                    "verifyAccountTitle".tr(),
-                    textAlign: TextAlign.center,
-                    // 2. Updated Title to Zehut Navy so it's visible on white
-                    style: const TextStyle(color: Color(0xFF103856), fontSize: 32, fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 15),
-                  Text(
-                    "tapToAuthenticate".tr(),
-                    textAlign: TextAlign.center,
-                    // 3. Updated Subtitle to dark Navy-Grey
-                    style: TextStyle(color: const Color(0xFF103856).withOpacity(0.7), fontSize: 16, height: 1.4),
-                  ),
-                  const SizedBox(height: 40),
-                  ValueListenableBuilder<int>(
-                    valueListenable: di<AppState>().lockoutSeconds,
-                    builder: (context, secondsLeft, child) {
-                      final bool isLocked = secondsLeft > 0;
-
-                      return ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isLocked ? Colors.redAccent.shade700 : const Color(0xFF25D366),
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                        ),
-                        icon: Icon(isLocked ? Icons.timer : Icons.chat_bubble_outline, color: !isLocked ? const Color(0xff010126) : Colors.white),
-                        label: Text(
-                          isLocked ? "${'verify_locked_btn'.tr()}${secondsLeft.toString().padLeft(2, '0')}" : "verify_whatsapp_btn".tr(),
-                          style: TextStyle(color: !isLocked ? const Color(0xff010126) : Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        onPressed: isLocked
-                            ? () {
-                                _showTopToast(context, "verify_toast_locked".tr());
-                              }
-                            : () async {
-                          di<AppState>().registerAuthAttempt();
-                          const burnerPhone = "972525822005";
-                          String instruction = "whatsappVerifyMsg".tr();
-                          String whatsappMessage = "$_authCode $instruction";
-                          String encodedMessage = Uri.encodeComponent(whatsappMessage);
-
-                          if (kIsWeb) {
-                            // 🎯 THE DOM WAY: Native scheme + _self
-                            // Hands off to the OS instantly. The Flutter app stays alive in the current tab.
-                            final anchor = html.AnchorElement(href: "whatsapp://send?phone=$burnerPhone&text=$encodedMessage")
-                              ..target = '_self'
-                              ..style.display = 'none';
-
-                            html.document.body?.append(anchor);
-                            anchor.click();
-                            anchor.remove();
-                          } else {
-                            // Native app fallback
-                            final nativeUrl = Uri.parse("whatsapp://send?phone=$burnerPhone&text=$encodedMessage");
-                            launchUrl(nativeUrl, mode: LaunchMode.externalApplication);
-                          }
-                        }
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 15),
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _pendingPhone = null;
-                        _authCode = null;
-                        _contactController.clear();
-                      });
-                    },
-                    child: Text(
-                      "change_phone_btn".tr(),
-                      // 4. Update secondary button text to be darker
-                      style: TextStyle(color: const Color(0xFF103856).withOpacity(0.6), fontSize: 14, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-    }
-
-    // --- SCREEN 1: THE CAPTURE SCREEN (ANALYTICS ICON) ---
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      behavior: HitTestBehavior.opaque,
-      child: Stack(
-        children: [
-          Center(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.all(30.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // 5. Updated Icon from blueAccent to the global theme primaryColor
-                  Icon(Icons.analytics, size: 80, color: Theme.of(context).primaryColor),
-                  const SizedBox(height: 20),
-                  Text(
-                    "capture_title".tr(),
-                    textAlign: TextAlign.center,
-                    // 6. Updated title to Zehut Navy (was Colors.white)
-                    style: const TextStyle(color: Color(0xFF103856), fontSize: 32, fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 15),
-                  Text(
-                    "capture_desc_phone".tr(),
-                    textAlign: TextAlign.center,
-                    // 7. Updated subtext to dark Navy-Grey (was Colors.grey)
-                    style: TextStyle(color: const Color(0xFF103856).withOpacity(0.7), fontSize: 16, height: 1.4),
-                  ),
-                  const SizedBox(height: 40),
-                  Container(
-                    decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(15)),
-                    child: Row(
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16.0),
-                          // 8. Whiter icon inside the text field box
-                          child: Icon(Icons.phone_android, color: Colors.white70),
-                        ),
-                        Expanded(
-                          child: TextField(
-                            controller: _contactController,
-                            keyboardType: TextInputType.phone,
-                            keyboardAppearance: Brightness.dark,
-                            enableSuggestions: false,
-                            autocorrect: false,
-                            style: const TextStyle(color: Colors.white, fontSize: 20, height: 1.15),
-                            decoration: InputDecoration(
-                              hintText: "capture_hint".tr(),
-                              // 9. Whiter hint text inside the text field box
-                              hintStyle: const TextStyle(color: Colors.white60, fontSize: 16),
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 20),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).primaryColor,
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                    ),
-                    child: Text(
-                      "capture_btn".tr(),
-                      style: const TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: () async {
-                      // ... Keeps your exact existing Firebase and validation logic ...
-                      FocusScope.of(context).unfocus();
-
-                      String contactInfo = _contactController.text.replaceAll(RegExp(r'[^0-9]'), '');
-
-                      if (contactInfo.length < 9) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              "capture_error_phone".tr(),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                            ),
-                            backgroundColor: Colors.red,
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                        return;
-                      }
-
-                      int matchPercentage = (_score / _policies.length * 100).round();
-
-                      try {
-                        String masterUid = FirebaseAuth.instance.currentUser?.uid ?? '';
-                        DocumentSnapshot citizenDoc = await FirebaseFirestore.instance.collection('citizens').doc(contactInfo).get();
-
-                        int currentA2hs = 0;
-                        bool alreadyVerified = false;
-
-                        if (citizenDoc.exists && citizenDoc.data() != null) {
-                          final dataMap = citizenDoc.data() as Map<String, dynamic>;
-                          masterUid = dataMap['uid'] ?? masterUid;
-                          currentA2hs = dataMap['a2hs_count'] ?? 0;
-
-                          var v = dataMap['verified'];
-                          alreadyVerified = (v == true || v == 'true');
-                        }
-
-                        if (alreadyVerified) {
-                          await FirebaseFirestore.instance.collection('citizens').doc(contactInfo).set({'match_percentage': matchPercentage, 'source': 'swipe_quiz_tab3', 'timestamp_quiz': FieldValue.serverTimestamp()}, SetOptions(merge: true));
-
-                          await di<AppState>().savePhone(contactInfo);
-
-                          setState(() {
-                            _pendingPhone = null;
-                            _authCode = null;
-                            isFinished = true;
-                          });
-
-                          // 🎯 FIX: Call the new method, no parentContext needed
-                          Future.delayed(const Duration(seconds: 3), () {
-                            // _triggerInstallPrompt();
-                          });
-
-                          return;
-                        }
-
-                        String newAuthCode = masterUid;
-                        await FirebaseFirestore.instance.collection('citizens').doc(contactInfo).set({'phone': contactInfo, 'uid': masterUid, 'match_percentage': matchPercentage, 'source': 'swipe_quiz_tab3', 'timestamp_quiz': FieldValue.serverTimestamp(), 'auth_code': newAuthCode, 'verified': false, 'a2hs_count': currentA2hs}, SetOptions(merge: true));
-
-                        setState(() {
-                          _pendingPhone = contactInfo;
-                          _authCode = newAuthCode;
-                        });
-                      } catch (e) {
-                        debugPrint("Firebase error: $e");
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _showTopToast(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -554,9 +281,39 @@ class _PlanTabState extends State<PlanTab> {
     return true;
   }
 
+  Widget _buildCaptureScreen() {
+    return Center(
+      child: ElevatedButton.icon(
+        onPressed: () async {
+          // 🎯 THE ONE-LINER
+          await showUniversalAuthSheet(context);
+
+          // If they successfully logged in, save their score
+          if (di<AppState>().isLoggedIn.value) {
+            String? rawPhone = di<AppState>().userPhone.value;
+            if (rawPhone != null) {
+              String knownPhone = _formatForDatabase(rawPhone);
+              int matchPercentage = (_score / _policies.length * 100).round();
+              await FirebaseFirestore.instance.collection('citizens').doc(knownPhone).set({
+                'phone': knownPhone,
+                'match_percentage': matchPercentage,
+                'source': 'swipe_quiz_tab3',
+                'timestamp_quiz': FieldValue.serverTimestamp(),
+              }, SetOptions(merge: true));
+            }
+          }
+        },
+        icon: const Icon(Icons.lock, color: Colors.black),
+        label: const Text("Verify Account", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor),
+      ),
+    );
+  }
+
   Widget _buildEndScreen() {
-    String? phone = di<AppState>().userPhone.value;
-    if (phone == null) return const SizedBox.shrink();
+    String? rawPhone = di<AppState>().userPhone.value;
+    if (rawPhone == null) return const SizedBox.shrink();
+    String phone = _formatForDatabase(rawPhone);
 
     return StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance.collection('citizens').doc(phone).snapshots(),
@@ -628,7 +385,7 @@ class _PlanTabState extends State<PlanTab> {
                       isFinished = false;
                       _score = 0;
                       _swipeHistory.clear();
-                      _contactController.clear();
+
                     });
                   },
                   icon: const Icon(Icons.refresh, color: Colors.black),
@@ -646,8 +403,7 @@ class _PlanTabState extends State<PlanTab> {
   }
 }
 
-// ==========================================
-// 🔥 THE NEW SMART POLICY CARD WIDGET
+
 // ==========================================
 // 🔥 THE NEW SMART POLICY CARD WIDGET
 // ==========================================

@@ -73,6 +73,7 @@ class _AdminFeedManagerState extends State<AdminFeedManager> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     TextField(
+                        keyboardAppearance: Brightness.dark,
                         controller: fileNameController,
                         style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
                         decoration: InputDecoration(
@@ -82,9 +83,9 @@ class _AdminFeedManagerState extends State<AdminFeedManager> {
                         )
                     ),
                     const SizedBox(height: 10),
-                    TextField(controller: titleController, style: const TextStyle(color: Colors.black87), decoration: InputDecoration(labelText: 'field_title'.tr(), labelStyle: const TextStyle(color: Colors.black54))),
-                    TextField(controller: subtitleController, style: const TextStyle(color: Colors.black87), decoration: InputDecoration(labelText: 'field_subtitle'.tr(), labelStyle: const TextStyle(color: Colors.black54))),
-                    TextField(controller: likesController, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.black87), decoration: InputDecoration(labelText: 'field_likes'.tr(), labelStyle: const TextStyle(color: Colors.black54))),
+                    TextField(controller: titleController,keyboardAppearance: Brightness.dark, style: const TextStyle(color: Colors.black87), decoration: InputDecoration(labelText: 'field_title'.tr(), labelStyle: const TextStyle(color: Colors.black54))),
+                    TextField(controller: subtitleController,keyboardAppearance: Brightness.dark, style: const TextStyle(color: Colors.black87), decoration: InputDecoration(labelText: 'field_subtitle'.tr(), labelStyle: const TextStyle(color: Colors.black54))),
+                    TextField(controller: likesController,keyboardAppearance: Brightness.dark, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.black87), decoration: InputDecoration(labelText: 'field_likes'.tr(), labelStyle: const TextStyle(color: Colors.black54))),
                     const SizedBox(height: 15),
                     SwitchListTile(
                         title: Text('edit_requires_auth'.tr(), style: const TextStyle(color: Color(0xFF103856), fontWeight: FontWeight.w500)),
@@ -530,6 +531,7 @@ class _VideoDeployWidgetState extends State<VideoDeployWidget> {
   Widget _buildTextField({required TextEditingController controller, required String label, bool isNumber = false, bool enabled = true, bool isSmall = false}) {
     return TextField(
       controller: controller,
+      keyboardAppearance: Brightness.dark,
       enabled: enabled,
       keyboardType: isNumber ? TextInputType.number : TextInputType.text,
       style: const TextStyle(color: Colors.lightBlue, fontWeight: FontWeight.w600),

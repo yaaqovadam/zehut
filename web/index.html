@@ -2,6 +2,17 @@
 <html lang="he">
 <head>
   <script>
+    // Automatically unregister any existing Service Workers for end users
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for (let registration of registrations) {
+          registration.unregister();
+          console.log('Old Service Worker destroyed to force fresh update.');
+        }
+      });
+    }
+  </script>
+  <script>
     window.deferredPrompt = null;
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
@@ -151,7 +162,24 @@
       window.triggerAppInstall(lang);
     });
   </script>
-  <script src="flutter_bootstrap.js?v857" async></script>
+  <script>
+    // 💥 AGGRESSIVE CACHE BUSTER: Destroys old service workers and clears storage on load
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for(let registration of registrations) {
+          registration.unregister();
+        }
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then(function(names) {
+        for (let name of names) {
+          caches.delete(name);
+        }
+      });
+    }
+  </script>
+  <script src="flutter_bootstrap.js?v985" async></script>
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">

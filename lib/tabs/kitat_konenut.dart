@@ -26,9 +26,7 @@ class _ActionTabState extends State<ActionTab> {
 
   Stream<QuerySnapshot>? _pinsStream;
   String selectedStatus = "armed";
-  String? _pendingPhone;
-  String? _authCode;
-  final TextEditingController _phoneController = TextEditingController();
+
   bool _isMapMoved = false;
   bool _hasSavedPin = false;
 
@@ -41,7 +39,7 @@ class _ActionTabState extends State<ActionTab> {
 
   @override
   void dispose() {
-    _phoneController.dispose();
+
     _mapController.dispose();
     super.dispose();
   }
@@ -209,13 +207,21 @@ class _ActionTabState extends State<ActionTab> {
                 ElevatedButton(
                   onPressed: () async {
                     Navigator.pop(context);
+
+                    if (!di<AppState>().isLoggedIn.value) {
+                      await showUniversalAuthSheet(context);
+                    }
+
                     if (di<AppState>().isLoggedIn.value) {
                       String? globalUid = di<AppState>().userUid.value;
                       if (globalUid != null) {
                         await _savePinToFirebase(latLng, globalUid);
+                        if (mounted) {
+                          Future.delayed(const Duration(milliseconds: 400), () {
+                            if (mounted) _showA2HSBottomSheet();
+                          });
+                        }
                       }
-                    } else {
-                      _showVerificationBottomSheet(latLng);
                     }
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor),
@@ -358,271 +364,7 @@ class _ActionTabState extends State<ActionTab> {
     }
   }
 
-  void _showVerificationBottomSheet(LatLng latLng) {
-    setState(() {
-      _pendingPhone = null;
-      _authCode = null;
-      _phoneController.clear();
-    });
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      barrierColor: Colors.black.withOpacity(0.85),
-      backgroundColor: const Color(0xFF0F172A),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-      ),
-      builder: (BuildContext bottomSheetContext) {
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-        child: StatefulBuilder(
-            builder: (statefulContext, setModalState) {
-
-              // --- PHASE 2: THE WHATSAPP TRAP ---
-              if (_pendingPhone != null && _authCode != null) {
-                return StreamBuilder<DocumentSnapshot>(
-                  stream: FirebaseFirestore.instance.collection('citizens').doc(_pendingPhone).snapshots(),
-                  builder: (streamContext, snapshot) {
-                    if (snapshot.hasData && snapshot.data!.exists) {
-                      final Map<String, dynamic>? data = snapshot.data!.data() as Map<String, dynamic>?;
-
-                      var v = data?['verified'];
-                      if (data != null && (v == true || v == 'true') && _pendingPhone != null) {
-
-                        final String verifiedPhone = _pendingPhone!;
-                        String masterUid = FirebaseAuth.instance.currentUser?.uid ?? '';
-
-                        WidgetsBinding.instance.addPostFrameCallback((_) async {
-                          if (_pendingPhone == null) return;
-
-                          setState(() {
-                            _pendingPhone = null;
-                            _authCode = null;
-                          });
-
-                          // Pop WhatsApp UI immediately so it's out of the way
-                          Navigator.of(bottomSheetContext).pop();
-
-                          await di<AppState>().savePhone(verifiedPhone);
-                          await _savePinToFirebase(latLng, masterUid);
-
-                          if (mounted) {
-                            Future.delayed(const Duration(milliseconds: 400), () {
-                              if (mounted) {
-                                _showA2HSBottomSheet();
-                              }
-                            });
-                          }
-                        });
-                      }
-                    }
-
-                    return GestureDetector(
-                      onTap: () {},
-                      child: SingleChildScrollView(
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                            bottom: MediaQuery.of(statefulContext).viewInsets.bottom + 30,
-                            top: 30,
-                            left: 30,
-                            right: 30,
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const Icon(Icons.lock_outline, size: 80, color: Colors.orangeAccent),
-                              const SizedBox(height: 20),
-                              Text(
-                                "verifyAccountTitle".tr(),
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900),
-                              ),
-                              const SizedBox(height: 15),
-                              Text(
-                                "tapToAuthenticate".tr(),
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(color: Colors.grey, fontSize: 16, height: 1.4),
-                              ),
-                              const SizedBox(height: 40),
-                              ValueListenableBuilder<int>(
-                                valueListenable: di<AppState>().lockoutSeconds,
-                                builder: (context, secondsLeft, child) {
-                                  final bool isLocked = secondsLeft > 0;
-                        
-                                  return ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: isLocked ? Colors.redAccent.shade700 : const Color(0xFF25D366),
-                                      padding: const EdgeInsets.symmetric(vertical: 18),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                                    ),
-                                    icon: Icon(
-                                      isLocked ? Icons.timer : Icons.chat_bubble_outline,
-                                      color: !isLocked ? const Color(0xff010126) : Colors.white,
-                                    ),
-                                    label: Text(
-                                      isLocked
-                                          ? "${'verify_locked_btn'.tr()}${secondsLeft.toString().padLeft(2, '0')}"
-                                          : "verify_whatsapp_btn".tr(),
-                                      style: TextStyle(color: !isLocked ? const Color(0xff010126) : Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                                    ),
-                                    onPressed: isLocked ? () {
-                                      _showTopToast(statefulContext, "verify_toast_locked".tr());
-                                    } : () async {
-                                      di<AppState>().registerAuthAttempt();
-                                      const burnerPhone = "972525822005";
-                        
-                                      // 1. Grab the localized string
-                                      String instruction = "whatsappVerifyMsg".tr();
-                        
-                                      // 2. Build string: Code + EXACTLY ONE SPACE + Instruction
-                                      String whatsappMessage = "$_authCode $instruction";
-                        
-                                      // 3. Encode to prevent URL breaking
-                                      String encodedMessage = Uri.encodeComponent(whatsappMessage);
-                        
-                                      final url = Uri.parse("https://wa.me/$burnerPhone?text=$encodedMessage");
-                                      if (await canLaunchUrl(url)) {
-                                        await launchUrl(url, mode: LaunchMode.externalApplication);
-                                      }
-                                    },
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 15),
-                              TextButton(
-                                onPressed: () {
-                                  setModalState(() {
-                                    setState(() {
-                                      _pendingPhone = null;
-                                      _authCode = null;
-                                      _phoneController.clear();
-                                    });
-                                  });
-                                },
-                                child: Text(
-                                  "change_phone_btn".tr(),
-                                  style: const TextStyle(color: Colors.grey, fontSize: 14),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                );
-              }
-
-              // --- PHASE 1: INITIAL PHONE HARVEST ---
-              return GestureDetector(
-                onTap: () {},
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(statefulContext).viewInsets.bottom + 30,
-                    top: 30,
-                    left: 30,
-                    right: 30,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Icon(Icons.shield, size: 80, color: Colors.blueAccent),
-                      const SizedBox(height: 20),
-                      Text(
-                        "map_dialog_title".tr(),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900),
-                      ),
-                      const SizedBox(height: 15),
-                      Text(
-                        "map_verification_subtitle".tr(),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.grey, fontSize: 16, height: 1.4),
-                      ),
-                      const SizedBox(height: 40),
-                      TextField(
-                        controller: _phoneController,
-                        keyboardType: TextInputType.phone,
-                        keyboardAppearance: Brightness.dark,
-                        style: const TextStyle(color: Colors.white, fontSize: 20, letterSpacing: 2),
-                        textAlign: TextAlign.center,
-                        decoration: InputDecoration(
-                          hintText: "capture_hint".tr(),
-                          hintStyle: TextStyle(color: Colors.grey.withOpacity(0.5), fontSize: 16, letterSpacing: 0),
-                          filled: true,
-                          fillColor: const Color(0xFF1E293B),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-                          prefixIcon: const Icon(Icons.phone_android, color: Colors.grey),
-                        ),
-                      ),
-                      const SizedBox(height: 30),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(statefulContext).primaryColor,
-                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                        ),
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            "map_verify_action_btn".tr(),
-                            style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        onPressed: () async {
-                          FocusScope.of(statefulContext).unfocus();
-                          String contactInfo = _phoneController.text.replaceAll(RegExp(r'[^0-9]'), '');
-
-                          if (contactInfo.length < 9) {
-                            _showError("capture_error_phone".tr());
-                            return;
-                          }
-
-                          try {
-                            final result = await di<AppState>().processPhoneAuth(
-                              contactInfo,
-                              {
-                                'map_status': selectedStatus,
-                                'timestamp_map': FieldValue.serverTimestamp(),
-                              },
-                            );
-
-                            if (result.isAlreadyVerified) {
-                              Navigator.of(bottomSheetContext).pop();
-                              await _savePinToFirebase(latLng, result.uid);
-
-                              if (mounted) {
-                                Future.delayed(const Duration(milliseconds: 400), () {
-                                  if (mounted) _showA2HSBottomSheet();
-                                });
-                              }
-                            } else {
-                              setModalState(() {
-                                setState(() {
-                                  _pendingPhone = result.phone;
-                                  _authCode = result.authCode;
-                                });
-                              });
-                            }
-                          } catch (e) {
-                            _showError("map_err_save".tr());
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
 
   void _showTopToast(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -667,7 +409,7 @@ class _ActionTabState extends State<ActionTab> {
             children: [
               TileLayer(
                 // 👇 Changed dark_all to light_all
-                urlTemplate: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+   urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_3sj7_1_1520bde09244bd7c5bef2c8e',
                 subdomains: const ['a', 'b', 'c', 'd'],
               ),
               StreamBuilder<QuerySnapshot>(
@@ -758,14 +500,24 @@ class _ActionTabState extends State<ActionTab> {
                         child: ElevatedButton.icon(
                           onPressed: () async {
                             LatLng currentCenter = _mapController.camera.center;
+
                             if (_isMapMoved) {
+                              // 1. If not logged in, wait for the global sheet to finish
+                              if (!di<AppState>().isLoggedIn.value) {
+                                await showUniversalAuthSheet(context);
+                              }
+
+                              // 2. The sheet closed. If they are now logged in, save the pin!
                               if (di<AppState>().isLoggedIn.value) {
                                 String? globalUid = di<AppState>().userUid.value;
                                 if (globalUid != null) {
                                   await _savePinToFirebase(currentCenter, globalUid);
+                                  if (mounted) {
+                                    Future.delayed(const Duration(milliseconds: 400), () {
+                                      if (mounted) _showA2HSBottomSheet();
+                                    });
+                                  }
                                 }
-                              } else {
-                                _showVerificationBottomSheet(currentCenter);
                               }
                             } else {
                               _showPinDialog(currentCenter);

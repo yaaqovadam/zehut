@@ -14,6 +14,10 @@ import 'dart:html' as html;
 import '../common/common.dart';
 import '../app_state.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:html' as html;
+import 'package:flutter/foundation.dart';
+import 'dart:html' as html;
+import 'package:flutter/foundation.dart';
 
 bool sessionAudioUnlocked = false;
 
@@ -31,6 +35,7 @@ class _FeedTabState extends State<FeedTab> {
   bool _isLoadingFeed = true;
   late PageController _pageController;
   bool sessionAudioUnlocked = false;
+  String? _lastVideoId; // 🎯 The Bookmark
 
   final ValueNotifier<int> _currentScrollNotifier = ValueNotifier<int>(0);
   final ValueNotifier<bool> _isGlobalMuted = ValueNotifier<bool>(true);
@@ -46,6 +51,8 @@ class _FeedTabState extends State<FeedTab> {
     if (_feedVideos.isEmpty) return 0;
     return (i % _feedVideos.length + _feedVideos.length) % _feedVideos.length;
   }
+
+
 
   void _nukeSafariPlayButton() {
     if (kIsWeb) {
@@ -69,9 +76,16 @@ class _FeedTabState extends State<FeedTab> {
   void initState() {
     super.initState();
     _nukeSafariPlayButton();
-    _fetchFeedFromFirebase();
+
+    // 🎯 Wait to load memory BEFORE fetching the feed so we know where to jump
     SharedPreferences.getInstance().then((prefs) {
-      if (mounted) setState(() => _hasSwipedFeed = prefs.getBool('has_swiped_feed') ?? false);
+      if (mounted) {
+        setState(() {
+          _hasSwipedFeed = prefs.getBool('has_swiped_feed') ?? false;
+          _lastVideoId = prefs.getString('last_watched_video_id');
+        });
+        _fetchFeedFromFirebase(); // Fetch triggered here instead
+      }
     });
   }
 
@@ -111,27 +125,26 @@ class _FeedTabState extends State<FeedTab> {
         if (isFirstLoad && _feedVideos.isNotEmpty) {
           int startingIndex = 0;
 
-          // 🎯 1. First, check if the Admin panel sent us a specific video ID
+          // 1. First, check if the Admin panel sent us a specific video ID
           if (widget.targetVideoId != null) {
             int foundIndex = _feedVideos.indexWhere((v) => v['id'] == widget.targetVideoId);
-            if (foundIndex != -1) {
-              startingIndex = foundIndex;
-            }
+            if (foundIndex != -1) startingIndex = foundIndex;
           }
           // 2. Otherwise, fall back to checking the web HTML metadata
           else if (kIsWeb) {
             try {
               final metaTag = html.document.querySelector('meta[name="video-id"]');
-              if (metaTag != null) {
-                final targetId = metaTag.attributes['content'];
-                if (targetId != null) {
-                  int foundIndex = _feedVideos.indexWhere((v) => v['id'] == targetId);
-                  if (foundIndex != -1) {
-                    startingIndex = foundIndex;
-                  }
-                }
+              if (metaTag != null && metaTag.attributes['content'] != null) {
+                int foundIndex = _feedVideos.indexWhere((v) => v['id'] == metaTag.attributes['content']);
+                if (foundIndex != -1) startingIndex = foundIndex;
               }
             } catch (_) {}
+          }
+
+          // 🎯 3. NEW FALLBACK: Return to the exact video they were watching before WhatsApp
+          if (startingIndex == 0 && _lastVideoId != null) {
+            int foundIndex = _feedVideos.indexWhere((v) => v['id'] == _lastVideoId);
+            if (foundIndex != -1) startingIndex = foundIndex;
           }
 
           if (startingIndex >= _feedVideos.length || startingIndex < 0) {
@@ -199,236 +212,7 @@ class _FeedTabState extends State<FeedTab> {
   }
 
   void _showVerificationBottomSheet() {
-    setState(() {
-      _pendingPhone = null;
-      _authCode = null;
-      _phoneController.clear();
-    });
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      barrierColor: Colors.black.withOpacity(0.85),
-      backgroundColor: const Color(0xFF0F172A),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-      ),
-      builder: (BuildContext bottomSheetContext) {
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-          child: StatefulBuilder(
-            builder: (statefulContext, setModalState) {
-              if (_pendingPhone != null && _authCode != null) {
-                return StreamBuilder<DocumentSnapshot>(
-                  stream: FirebaseFirestore.instance.collection('citizens').doc(_pendingPhone).snapshots(),
-                  builder: (streamContext, snapshot) {
-                    if (snapshot.hasData && snapshot.data!.exists) {
-                      final Map<String, dynamic>? data = snapshot.data!.data() as Map<String, dynamic>?;
-
-                      var v = data?['verified'];
-                      if (data != null && (v == true || v == 'true') && _pendingPhone != null) {
-                        final String verifiedPhone = _pendingPhone!;
-
-                        WidgetsBinding.instance.addPostFrameCallback((_) async {
-                          if (_pendingPhone == null) return;
-
-                          // 🎯 1. Pop the sheet FIRST while bottomSheetContext is completely mounted
-                          if (bottomSheetContext.mounted) {
-                            Navigator.of(bottomSheetContext).pop();
-                          }
-
-                          // 🎯 2. Save credentials to local storage
-                          await di<AppState>().savePhone(verifiedPhone);
-
-                          // 🎯 3. Clear temporary state
-                          if (mounted) {
-                            setState(() {
-                              _pendingPhone = null;
-                              _authCode = null;
-                            });
-                          }
-                        });
-                      }
-                    }
-
-                    return GestureDetector(
-                      onTap: () {},
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          bottom: MediaQuery.of(statefulContext).viewInsets.bottom + 30,
-                          top: 30,
-                          left: 30,
-                          right: 30,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const Icon(Icons.lock_outline, size: 80, color: Colors.orangeAccent),
-                            const SizedBox(height: 20),
-                            Text("verifyAccountTitle".tr(), textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
-                            const SizedBox(height: 15),
-                            Text("tapToAuthenticate".tr(), textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey, fontSize: 16, height: 1.4)),
-                            const SizedBox(height: 40),
-                            ValueListenableBuilder<int>(
-                              valueListenable: di<AppState>().lockoutSeconds,
-                              builder: (context, secondsLeft, child) {
-                                final bool isLocked = secondsLeft > 0;
-
-                                return ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: isLocked ? Colors.redAccent.shade700 : const Color(0xFF25D366),
-                                    padding: const EdgeInsets.symmetric(vertical: 18),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                                  ),
-                                  icon: Icon(isLocked ? Icons.timer : Icons.chat_bubble_outline, color: !isLocked ? const Color(0xff010126) : Colors.white),
-                                  label: Text(
-                                    isLocked ? "${'verify_locked_btn'.tr()}${secondsLeft.toString().padLeft(2, '0')}" : "verify_whatsapp_btn".tr(),
-                                    style: TextStyle(color: !isLocked ? const Color(0xff010126) : Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                                  ),
-                                  onPressed: isLocked ? () {
-                                    _showTopToast(statefulContext, "verify_toast_locked".tr());
-                                  } : () async {
-                                    di<AppState>().registerAuthAttempt();
-                                    const burnerPhone = "972525822005";
-                                    String instruction = "whatsappVerifyMsg".tr();
-                                    String whatsappMessage = "$_authCode $instruction";
-                                    String encodedMessage = Uri.encodeComponent(whatsappMessage);
-                                    final url = Uri.parse("https://wa.me/$burnerPhone?text=$encodedMessage");
-                                    if (await canLaunchUrl(url)) {
-                                      await launchUrl(url, mode: LaunchMode.externalApplication);
-                                    }
-                                  },
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 15),
-                            TextButton(
-                              onPressed: () {
-                                setModalState(() {
-                                  setState(() {
-                                    _pendingPhone = null;
-                                    _authCode = null;
-                                    _phoneController.clear();
-                                  });
-                                });
-                              },
-                              child: Text("change_phone_btn".tr(), style: const TextStyle(color: Colors.grey, fontSize: 14)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              }
-
-              return GestureDetector(
-                onTap: () {},
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      bottom: MediaQuery.of(statefulContext).viewInsets.bottom + 30,
-                      top: 30,
-                      left: 30,
-                      right: 30,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(
-                          width: 80,
-                          height: 80,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              const Icon(Icons.shield, size: 80, color: Colors.blueAccent),
-                              // Positioned slightly higher to visually center inside the shield's curves
-                              const Positioned(
-                                top: 18,
-                                child: MagenDavid(size:40, color: Colors.white, strokeWidth: 3.0),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Text("map_dialog_title".tr(), textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
-                        const SizedBox(height: 15),
-                        Text("map_verification_subtitle".tr(), textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey, fontSize: 16, height: 1.4)),
-                        const SizedBox(height: 40),
-                        TextField(
-                          controller: _phoneController,
-                          keyboardType: TextInputType.phone,
-                          keyboardAppearance: Brightness.dark,
-                          style: const TextStyle(color: Colors.white, fontSize: 20, letterSpacing: 2),
-                          textAlign: TextAlign.center,
-                          decoration: InputDecoration(
-                            hintText: "capture_hint".tr(),
-                            hintStyle: TextStyle(color: Colors.grey.withOpacity(0.5), fontSize: 16, letterSpacing: 0),
-                            filled: true,
-                            fillColor: const Color(0xFF1E293B),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-                            prefixIcon: const Icon(Icons.phone_android, color: Colors.grey),
-                          ),
-                        ),
-                        const SizedBox(height: 30),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(statefulContext).primaryColor,
-                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                          ),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text("map_verify_action_btn".tr(), style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
-                          ),
-                          onPressed: () async {
-                            FocusScope.of(statefulContext).unfocus();
-                            String contactInfo = _phoneController.text.replaceAll(RegExp(r'[^0-9]'), '');
-
-                            if (contactInfo.length < 9) {
-                              _showError("capture_error_phone".tr());
-                              return;
-                            }
-
-                            try {
-                              final result = await di<AppState>().processPhoneAuth(
-                                contactInfo,
-                                {},
-                              );
-
-                              if (result.isAlreadyVerified) {
-                                // 🎯 Save to state so lock overlay clears
-                                await di<AppState>().savePhone(contactInfo);
-                                if (bottomSheetContext.mounted) {
-                                  Navigator.of(bottomSheetContext).pop();
-                                }
-                                if (mounted) setState(() {});
-                              } else {
-                                setModalState(() {
-                                  setState(() {
-                                    _pendingPhone = result.phone;
-                                    _authCode = result.authCode;
-                                  });
-                                });
-                              }
-                            } catch (e) {
-                              _showError("map_err_save".tr());
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
+    showUniversalAuthSheet(context);
   }
   void _setGlobalMute(bool isMuted) async {
     if (_isGlobalMuted.value == isMuted) return;
@@ -483,6 +267,12 @@ class _FeedTabState extends State<FeedTab> {
                 int target = (_pageController.page ?? 0).round();
                 if (_currentScrollNotifier.value != target) {
                   _currentScrollNotifier.value = target;
+
+                  // 🎯 Instantly save their place in the feed memory
+                  final actualIndex = _getActual(target);
+                  final currentVideoId = _feedVideos[actualIndex]['id'];
+                  SharedPreferences.getInstance().then((prefs) =>
+                      prefs.setString('last_watched_video_id', currentVideoId.toString()));
                 }
               }
               return false;
@@ -578,11 +368,13 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     if (!mounted) return;
 
     bool isAdminUser = false;
-    final String? phone = di<AppState>().userPhone.value;
+    // SECURE: Grab the authenticated UID directly from Firebase
+    final user = FirebaseAuth.instance.currentUser;
 
-    if (phone != null && phone.isNotEmpty) {
+    if (user != null) {
       try {
-        final doc = await FirebaseFirestore.instance.collection('admins').doc(phone).get();
+        // Check the admins collection using the secure UID
+        final doc = await FirebaseFirestore.instance.collection('admins').doc(user.uid).get();
         if (doc.exists && doc.data()?['isAdmin'] == true) {
           isAdminUser = true;
         }
@@ -601,7 +393,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   @override
   void initState() {
-    super.initState();;
+    super.initState();
+    ;
     _initFeed();
     likeCount = widget.videoData['like_count'] is int
         ? widget.videoData['like_count']
@@ -628,24 +421,29 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 
   Future<void> _syncLikeToFirebase(bool isNowLiked, String videoId) async {
-    final String? phone = di<AppState>().userPhone.value;
-    if (phone == null || phone.isEmpty || videoId.isEmpty) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || videoId.isEmpty) return;
+
+    // 🎯 FORCE-STRIP the '+' directly into a new immutable variable
+    final String safePhone = user.uid.replaceAll('+', '').trim();
 
     final firestore = FirebaseFirestore.instance;
     try {
       if (isNowLiked) {
         await Future.wait([
           firestore.collection('feeds').doc(videoId).set({'like_count': FieldValue.increment(1)}, SetOptions(merge: true)),
-          firestore.collection('citizens').doc(phone).set({'saved_clips': FieldValue.arrayUnion([videoId])}, SetOptions(merge: true)),
+          // 🎯 Pass safePhone directly into the doc reference
+          firestore.collection('citizens').doc(safePhone).set({'saved_clips': FieldValue.arrayUnion([videoId])}, SetOptions(merge: true)),
         ]);
       } else {
         await Future.wait([
           firestore.collection('feeds').doc(videoId).set({'like_count': FieldValue.increment(-1)}, SetOptions(merge: true)),
-          firestore.collection('citizens').doc(phone).set({'saved_clips': FieldValue.arrayRemove([videoId])}, SetOptions(merge: true)),
+          // 🎯 Pass safePhone directly into the doc reference
+          firestore.collection('citizens').doc(safePhone).set({'saved_clips': FieldValue.arrayRemove([videoId])}, SetOptions(merge: true)),
         ]);
       }
     } catch (e) {
-      print("🚨 Failed to sync like to Firebase: $e");
+      debugPrint("🚨 Failed to sync like to Firebase: $e");
     }
   }
 
@@ -675,6 +473,11 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       _initAndPlay();
     } else if (!widget.isVisible && oldWidget.isVisible) {
       _disposeController();
+    }
+
+    // 🎯 NEW: Start the video instantly when the lock disappears!
+    if (!widget.isLocked && oldWidget.isLocked && widget.isVisible) {
+      _initAndPlay();
     }
 
     if (_isInitialized && _controller != null && widget.isMuted != oldWidget.isMuted) {
@@ -759,7 +562,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         if (newController.value.isInitialized &&
             newController.value.duration > Duration.zero &&
             newController.value.position >= newController.value.duration) {
-
           // 🔥 If they still haven't swiped when the video ends, trigger the gate and pause
           if (!widget.hasSwipedFeed) {
             _triggerTutorialGate(newController);
@@ -790,6 +592,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       }
     });
   }
+
   void _disposeController() {
     _uiHideTimer?.cancel();
     _isInitializing = false;
@@ -855,6 +658,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       });
     }
   }
+
   Widget _buildMarbleButton() {
     // 1. Grab the current video's Firestore ID
     final String videoId = widget.videoData['id']?.toString() ?? '';
@@ -983,8 +787,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       ),
     );
   }
-
-
 
 
   @override
@@ -1123,9 +925,10 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           ),
         ),
 
-        // 8. Action Buttons Row
         Positioned(
-          bottom: MediaQuery.of(context).padding.bottom,
+          // 🚨 Lifts the ENTIRE row UP by 30px on desktop to clear the bottom tabs
+          // bottom: MediaQuery.of(context).padding.bottom + (kIsWeb && html.window.matchMedia('(display-mode: standalone)').matches ? 30.0 : 0.0),
+          bottom: kIsWeb && html.window.matchMedia('(display-mode: standalone)').matches ? 15.0 : 5.0,
           left: 0,
           right: 0,
           child: GestureDetector(
@@ -1133,6 +936,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
             onTap: _onUserInteraction,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 15),
+
+
+
               child: AnimatedOpacity(
                 opacity: _showUi ? 1.0 : 0.3,
                 duration: const Duration(milliseconds: 250),
@@ -1158,18 +964,14 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                                 onTap: () {
                                   _onUserInteraction();
 
-                                  // 🛑 STRICT SECURITY GATE: Check both isLoggedIn AND the actual phone value
-                                  final bool hasValidPhone = di<AppState>().userPhone.value != null &&
-                                      di<AppState>().userPhone.value!.isNotEmpty;
+                                  // 🎯 RELY ON FIREBASE AUTH DIRECTLY, NOT APPSTATE
+                                  final user = FirebaseAuth.instance.currentUser;
 
-                                  if (!isLoggedIn || !hasValidPhone) {
-                                    // Trigger the exact same verification overlay used for locked videos
+                                  if (user == null) {
                                     widget.onUnlockTap();
-                                    // 🚨 CRITICAL: Exit immediately so the UI does not fake a successful like
                                     return;
                                   }
 
-                                  // Only fully verified users will reach this point
                                   final currentClips = List<String>.from(savedClipsList);
                                   setState(() {
                                     if (isLiked) {
@@ -1224,7 +1026,10 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                           final String shareTitle = title.isNotEmpty ? title : "app_name".tr();
 
                           String rawUrl = widget.videoData['url']?.toString() ?? "";
-                          String htmlFileName = rawUrl.split('/').last.replaceAll('.mp4', '.html');
+                          String htmlFileName = rawUrl
+                              .split('/')
+                              .last
+                              .replaceAll('.mp4', '.html');
                           String exactLink = "https://gamfeiglintzadak.co.il/$htmlFileName";
 
                           final String contentToShare = "$shareTitle\n\n$exactLink";
@@ -1241,105 +1046,33 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       ],
     );
   }
-
-  Widget _buildActionButton(IconData icon, String label, Color color, {VoidCallback? onTap}) {
-    return Padding(
-      // The dead zone: keeps the visual layout identical but lifts the tap target away from the bottom bar
-      padding: const EdgeInsets.only(bottom: 12),
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Padding(
-          // Reduced the vertical padding to shrink the clickable area
-          padding: const EdgeInsets.only(left: 10, right: 10, top: 8, bottom: 2),
-          child: Column(
-            mainAxisSize: MainAxisSize.min, // Ensures the tap target wraps tightly around the content
-            children: [
-              Icon(icon, color: color, size: 35),
-              // Removed the 4px SizedBox to pull the text flush against the icon
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  height: 1.1, // Tightens the invisible box around the text
-                ),
-              ),
-            ],
+}
+Widget _buildActionButton(IconData icon, String label, Color color, {VoidCallback? onTap}) {
+  return GestureDetector(
+    behavior: HitTestBehavior.opaque,
+    onTap: onTap,
+    child: Container(
+      color: Colors.transparent, // 🧱 The solid, physical hit-box
+      // 🚨 Thick, even padding replaces all Transform/Stack offsets
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 35),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              height: 1.1,
+            ),
           ),
-        ),
+        ],
       ),
-    );
-  }}
-
-
-
-class MagenDavid extends StatelessWidget {
-  final double size;
-  final Color color;
-  final double strokeWidth;
-
-  const MagenDavid({
-    super.key,
-    this.size = 80,
-    this.color = Colors.white,
-    this.strokeWidth = 4.5, // Thick, modern outline
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: CustomPaint(
-        size: Size(size, size),
-        painter: _MagenDavidPainter(color: color, strokeWidth: strokeWidth),
-      ),
-    );
-  }
+    ),
+  );
 }
 
-class _MagenDavidPainter extends CustomPainter {
-  final Color color;
-  final double strokeWidth;
-
-  _MagenDavidPainter({required this.color, required this.strokeWidth});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeJoin = StrokeJoin.round
-      ..strokeCap = StrokeCap.round;
-
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-    // Shrink radius slightly so the thick stroke doesn't get clipped at the edges
-    final r = (size.width < size.height ? size.width : size.height) / 2 - strokeWidth;
-
-    const sin30 = 0.5;
-    const cos30 = 0.8660254; // Exact geometry: sqrt(3) / 2
-
-    // Triangle 1 (pointing up)
-    final path1 = Path()
-      ..moveTo(cx, cy - r)
-      ..lineTo(cx + r * cos30, cy + r * sin30)
-      ..lineTo(cx - r * cos30, cy + r * sin30)
-      ..close();
-
-    // Triangle 2 (pointing down)
-    final path2 = Path()
-      ..moveTo(cx, cy + r)
-      ..lineTo(cx - r * cos30, cy - r * sin30)
-      ..lineTo(cx + r * cos30, cy - r * sin30)
-      ..close();
-
-    canvas.drawPath(path1, paint);
-    canvas.drawPath(path2, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}

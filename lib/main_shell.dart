@@ -8,10 +8,12 @@ import 'package:web/web.dart' as web;
 // Import your tabs and state
 import 'package:zehut_app/tabs/feed_tab.dart';
 import 'tabs/plan_tab.dart';
-import 'tabs/action_tab.dart';
+import 'tabs/kitat_konenut.dart';
 import 'tabs/vanguard_tab.dart';
 import 'common/common.dart';
 import 'app_state.dart';
+import 'dart:html' as html;
+import 'package:flutter/foundation.dart';
 import 'dart:html' as html;
 
 // Import the new drawer we created
@@ -21,7 +23,7 @@ class MainShell extends WatchingWidget {
   const MainShell({super.key});
 
   @override
-  Widget build(BuildContext context) {
+   build(BuildContext context) {
     final currentIndex = watchValue((AppState s) => s.navIndex);
 
     bool isPWA = false;
@@ -40,13 +42,14 @@ class MainShell extends WatchingWidget {
     final phone = watchValue((AppState s) => s.userPhone);
 
     // Clean the phone number just in case it has +972
+// UNIVERSAL FIX: Strip only the '+' symbol to match global E.164 DB format.
     String safePhone = "guest";
     if (phone != null && phone.isNotEmpty) {
-      safePhone = phone.replaceAll('+972', '0');
+      safePhone = phone.replaceAll('+', '');
     }
 
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('admins').doc(safePhone).get(),
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('admins').doc(safePhone).snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -63,95 +66,136 @@ class MainShell extends WatchingWidget {
           }
         }
 
-        // 🚨 TERMINAL DEBUGGER 🚨
-        debugPrint("==== ADMIN CHECK ====");
-        debugPrint("Raw Phone from State: '$phone'");
-        debugPrint("Cleaned Phone Queried: '$safePhone'");
-        debugPrint("Document Exists in DB: ${snapshot.data?.exists}");
-        debugPrint("Is Admin Granted: $isAdmin");
-        debugPrint("=====================");
+        // 🚨 MUST BE DEFINED HERE
+        final bool isStandalone = kIsWeb && html.window.matchMedia('(display-mode: standalone)').matches;
+        final double iconOffsetY = isStandalone ? -15.0 : 0.0;
 
         return Scaffold(
-          backgroundColor: Colors.white,
-          endDrawer: AppDrawer(isAdmin: isAdmin),
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            surfaceTintColor: Colors.transparent,
-            flexibleSpace: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  bottom: BorderSide(
-                    color: const Color(0xFF103856).withOpacity(0.3),
-                    width: 2.0,
+            backgroundColor: Colors.white,
+
+          endDrawer: AppDrawer(isAdmin: isAdmin), // 🚨 Pass the result to the drawer
+
+            appBar: AppBar(
+              toolbarHeight: 56.0 + (isStandalone ? 23.0 : 0.0),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              surfaceTintColor: Colors.transparent,
+              flexibleSpace: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                    bottom: BorderSide(
+                      color: const Color(0xFF103856).withOpacity(0.5),
+                      width: 2.0,
+                    ),
                   ),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.25),
-                    offset: const Offset(0, 5),
-                    blurRadius: 14,
-                  ),
-                ],
-              ),
-            ),
-            centerTitle: true,
-            leadingWidth: 80,
-            leading: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Image.asset('assets/images/zahut-logo.png', height: 35),
-            ),
-            title: Text(
-              'app_name'.tr(),
-              style: const TextStyle(
-                color: Color(0xFF103856),
-                fontWeight: FontWeight.w900,
-                fontSize: 26,
-              ),
-            ),
-            actions: [
-              InkWell(
-                onTap: () {
-                  if (context.locale.languageCode == 'he') {
-                    context.setLocale(const Locale('en'));
-                  } else {
-                    context.setLocale(const Locale('he'));
-                  }
-                },
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.language, color: Colors.lightBlue, size: 28),
-                    const SizedBox(height: 2),
-                    Text(
-                      context.locale.languageCode == 'he' ? 'English' : 'עברית',
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.25),
+                      offset: const Offset(0, 5),
+                      blurRadius: 14,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
-              Builder(
-                builder: (context) => IconButton(
-                  icon: const Icon(Icons.menu, size: 32, color: Colors.black),
-                  onPressed: () {
-                    Scaffold.of(context).openEndDrawer();
-                  },
+              centerTitle: true,
+              leadingWidth: 80,
+              leading: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {},
+                child: Transform.translate(
+                  offset: Offset(0, iconOffsetY - 7.0), // 🚨 Raised 7px
+                  child: Container(
+                    color: Colors.transparent,
+                    padding: EdgeInsets.only(
+                        left: 16.0,
+                        top: isStandalone ? 8.0 : 0.0
+                    ),
+                    alignment: Alignment.center,
+                    child: Image.asset('assets/images/zahut-logo.png', height: 35),
+                  ),
                 ),
               ),
-              const SizedBox(width: 10),
-            ],
-          ),
-          body: views[currentIndex],
-
+              title: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {},
+                child: Container(
+                  color: Colors.transparent,
+                  // 🚨 Added 20px right padding to push the title center/left and away from the language button
+                  padding: EdgeInsets.only(
+                    bottom: isStandalone ? 10.0 : 0.0,
+                    right: 20.0,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'app_name'.tr(),
+                    style: const TextStyle(
+                      color: Color(0xFF103856),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 26,
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    if (context.locale.languageCode == 'he') {
+                      context.setLocale(const Locale('en'));
+                    } else {
+                      context.setLocale(const Locale('he'));
+                    }
+                  },
+                  child: Container(
+                    color: Colors.transparent,
+                    padding: EdgeInsets.only(
+                      left: 5.0,
+                      right: 5.0,
+                      bottom: isStandalone ? 17.0 : 0.0,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.language, color: Colors.lightBlue, size: 28),
+                        const SizedBox(height: 2),
+                        Text(
+                          context.locale.languageCode == 'he' ? 'English' : 'עברית',
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Builder(
+                  builder: (context) => GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      Scaffold.of(context).openEndDrawer();
+                    },
+                    child: Container(
+                      color: Colors.transparent,
+                      padding: EdgeInsets.only(
+                        left: 10.0,
+                        right: 15.0,
+                        bottom: isStandalone ? 23.0 : 0.0,
+                      ),
+                      alignment: Alignment.center,
+                      // 🚨 Increased size from 36.0 to 41.0
+                      child: const Icon(Icons.menu, size: 41.0, color: Colors.black),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            body: views[currentIndex],
           bottomNavigationBar: Container(
-            height: 85, // Increased by 10px to accommodate the buffer
-            padding: const EdgeInsets.only(top: 10.0), // Creates a 10px un-clickable dead zone at the top
+            height: (kIsWeb && html.window.matchMedia('(display-mode: standalone)').matches) ? 75.0 : 65.0,
+            padding: const EdgeInsets.only(top: 5.0),
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border(
@@ -186,7 +230,6 @@ class MainShell extends WatchingWidget {
   }
 }
 
-
 Widget _buildNavItem({
   required IconData icon,
   required String label,
@@ -194,7 +237,8 @@ Widget _buildNavItem({
   required int currentIndex,
 }) {
   final isSelected = currentIndex == index;
-  final color = isSelected ? const Color(0xFF103856) : const Color(0xFF103856).withOpacity(0.5);
+  final color = isSelected ? Colors.lightBlue : const Color(0xFF103856).withOpacity(0.5);
+  final bool isStandalone = kIsWeb && html.window.matchMedia('(display-mode: standalone)').matches;
 
   return Expanded(
     child: GestureDetector(
@@ -202,39 +246,36 @@ Widget _buildNavItem({
       onTap: () => di<AppState>().setNavIndex(index),
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Transform.translate(
-              offset: const Offset(0, -4),
-              child: isSelected
-                  ? Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+        child: Container(
+          color: Colors.transparent,
+          // 🚨 Increased from 8.0 to 13.0 to lift 5 more px on PWA
+          padding: EdgeInsets.only(bottom: isStandalone ? 13.0 : 0.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4.0),
                 decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.15),
+                  color: isSelected ? Colors.grey.withOpacity(0.15) : Colors.transparent,
                   borderRadius: BorderRadius.circular(12.0),
                 ),
-                child: Icon(icon, size: 40.0, color: color),
-              )
-                  : Icon(icon, size: 40.0, color: color),
-            ),
-            Transform.translate(
-              offset: const Offset(0, -8),
-              child: Container(
-                color: Colors.transparent,
-                padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 4.0, bottom: 8.0),
+                child: Icon(icon, size: 34.0, color: color),
+              ),
+              Transform.translate(
+                offset: const Offset(0, -7.0),
                 child: Text(
                   label,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                    height: 1.0,
+                    height: 1.1,
                     color: color,
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     ),

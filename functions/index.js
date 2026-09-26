@@ -1,141 +1,71 @@
-cat << 'EOF' > index.js
-const express = require("express");
-const cors = require("cors");
-const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
-const ytDlp = require("yt-dlp-exec");
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
-const { execSync } = require("child_process");
+const functions = require('firebase-functions');
+const admin = require('firebase-admin');
+admin.initializeApp();
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+exports.generateTokenOnVerify = functions.firestore
+  .document('citizens/{phone}')
+  .onWrite(async (change, context) => {
+    const afterData = change.after ? change.after.data() : null;
+    const beforeData = change.before ? change.before.data() : null;
+    const phone = context.params.phone;
 
-const s3 = new S3Client({
-  region: "auto",
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY,
-    secretAccessKey: process.env.R2_SECRET_KEY,
-  },
-});
-
-app.post("/processAndDeployVideo", async (req, res) => {
-  const { url, start, end, title, docId } = req.body;
-  if (!url || !docId || !title) {
-    return res.status(400).json({ error: "Missing required fields." });
-  }
-
-  const startSec = parseInt(start) || 0;
-  const endSec = parseInt(end) || 15;
-  const fileName = `${docId}.mp4`;
-  const tempFilePath = path.join(os.tmpdir(), fileName);
-  const thumbFilePath = path.join(os.tmpdir(), `${docId}.jpg`);
-
-  try {
-    console.log(`Processing ${url} [${startSec}s - ${endSec}s]...`);
-
-await ytDlp(url, {
-  downloadSections: `*${startSec}-${endSec}`,
-  format: "bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-  mergeOutputFormat: "mp4",
-  extractorArgs: "youtube:player_client=ios", // <-- The magic bypass
-  postprocessorArgs: [
-    "-c:v", "copy",
-    "-c:a", "aac",
-    "-movflags", "+faststart"
-  ],
-  output: tempFilePath,
-  noWarnings: true,
-  forceOverwrites: true,
-});
-
-    if (!fs.existsSync(tempFilePath)) {
-      throw new Error("Download finished but output file not found");
+    // 1. Exit if document deleted or unverified
+    if (!afterData || afterData.verified !== true || !afterData.auth_code) {
+      return null;
     }
-////test
-    console.log("Generating thumbnail...");
-    execSync(`ffmpeg -i "${tempFilePath}" -ss 00:00:01 -vframes 1 "${thumbFilePath}" -y`);
 
-    console.log("Uploading JPG to Cloudflare R2...");
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: "zehut-media",
-        Key: `${docId}.jpg`,
-        Body: fs.createReadStream(thumbFilePath),
-        ContentType: "image/jpeg",
-      })
-    );
+    // 2. Trigger ONLY when a new auth_code arrives (prevents infinite loop on step 5)
+    const isNewCode = !beforeData || afterData.auth_code !== beforeData.auth_code;
+    if (!isNewCode) {
+      return null;
+    }
 
-    console.log("Uploading MP4 to Cloudflare R2...");
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: "zehut-media",
-        Key: fileName,
-        Body: fs.createReadStream(tempFilePath),
-        ContentType: "video/mp4",
-      })
-    );
+    try {
+      const formattedPhone = phone.startsWith('0')
+        ? '+972' + phone.substring(1)
+        : (phone.startsWith('+') ? phone : '+' + phone);
 
-    console.log("Uploading HTML to Cloudflare R2...");
-    const htmlFileName = `${docId}.html`;
-    const exactLink = `https://gamfeiglintzadak.co.il/${htmlFileName}`;
-    const thumbUrl = `https://gamfeiglintzadak.co.il/${docId}.jpg`;
-    const htmlContent = `<!DOCTYPE html>
-<html lang="he">
-<head>
-<base href="/">
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="color-scheme" content="dark">
-<title>${title}</title>
-<meta name="video-id" content="${docId}">
-<meta property="og:type" content="website">
-<meta property="og:url" content="${exactLink}">
-<meta property="og:title" content="${title}">
-<meta property="og:description" content="צפו לפני הכל כדי להבין את התמונה המלאה.">
-<meta property="og:image" itemprop="image" content="${thumbUrl}">
-<meta property="og:image:secure_url" itemprop="image" content="${thumbUrl}">
-<meta property="og:image:type" content="image/jpeg">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:url" content="${exactLink}">
-<meta name="twitter:title" content="${title}">
-<meta name="twitter:description" content="צפו לפני הכל כדי להבין את התמונה המלאה.">
-<meta name="twitter:image" content="${thumbUrl}">
-<style>
-body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; background-color: #ffffff; overflow: hidden; }
-</style>
-</head>
-<body>
-<script>
-if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(function(registrations) { for(let registration of registrations) { registration.unregister(); } }); }
-if ('caches' in window) { caches.keys().then(function(names) { for (let name of names) { caches.delete(name); } }); }
-</script>
-<script src="flutter_bootstrap.js?v256" async></script>
-</body>
-</html>`;
+      // 3. Create Auth user if doesn't exist
+      try {
+        await admin.auth().createUser({
+          uid: formattedPhone,
+          phoneNumber: formattedPhone
+        });
+        console.log("✅ Created Auth user:", formattedPhone);
+      } catch (userError) {
+        if (userError.code === 'auth/uid-already-exists' || userError.code === 'auth/phone-number-already-exists') {
+          console.log("ℹ️ Auth user already exists:", formattedPhone);
+        } else {
+          console.error("❌ Error creating Auth user:", userError.message);
+        }
+      }
 
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: "zehut-media",
-        Key: htmlFileName,
-        Body: htmlContent,
-        ContentType: "text/html; charset=utf-8",
-      })
-    );
+      // 4. Generate public_id (keep existing if already set)
+      const publicId = afterData.public_id || admin.firestore().collection('_').doc().id;
 
-    if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
-    if (fs.existsSync(thumbFilePath)) fs.unlinkSync(thumbFilePath);
-    return res.json({ success: true, fileName });
-  } catch (err) {
-    console.error("Pipeline error:", err);
-    if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
-    if (fs.existsSync(thumbFilePath)) fs.unlinkSync(thumbFilePath);
-    return res.status(500).json({ error: err.message || "Pipeline failed" });
-  }
-});
+      // 5. Mint custom token
+      const customToken = await admin.auth().createCustomToken(formattedPhone);
+      const authCode = afterData.auth_code;
 
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
-EOF
+      // 6. Write token for Flutter to consume
+      await admin.firestore().collection('auth_tokens').doc(authCode).set({
+        token: customToken,
+        phone: formattedPhone,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      // 7. Sync identity fields back to citizen doc
+      await admin.firestore().collection('citizens').doc(phone).set({
+        uid: formattedPhone,
+        international_phone: formattedPhone,
+        shaliach_number: formattedPhone.replace('+', ''),
+        public_id: publicId
+      }, { merge: true });
+
+      console.log(`✅ Token dropped for ${formattedPhone} under code ${authCode}`);
+      return null;
+    } catch (error) {
+      console.error("❌ Critical Error generating token:", error);
+      return null;
+    }
+  });

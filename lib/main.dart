@@ -33,7 +33,7 @@ import 'tabs/admin_feed_manager.dart';
     });
   }
   await batch.commit();
-  print("🔥🔥🔥 ALL 26 VIDEOS WRITTEN TO FIRESTORE DIRECTLY FROM APP! 🔥🔥🔥");
+  print("🔥🔥🔥 ALL 26 VIDEOS WRITTEN TO FIRESTORE D IRECTLY FROM APP! 🔥🔥🔥");
 }
 */
 
@@ -44,15 +44,15 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-// Force the app to remember the UID permanently
+// // Force the app to remember the UID permanently
   await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
-
-  if (FirebaseAuth.instance.currentUser == null) {
-    await FirebaseAuth.instance.signInAnonymously();
-  }
-
-  final currentUid = FirebaseAuth.instance.currentUser?.uid;
-  debugPrint("🔥 LOCKED UID: $currentUid");
+//
+//   if (FirebaseAuth.instance.currentUser == null) {
+//     await FirebaseAuth.instance.signInAnonymously();
+//   }
+//
+//   final currentUid = FirebaseAuth.instance.currentUser?.uid;
+//   debugPrint("🔥 LOCKED UID: $currentUid");
 
   // await _seedDatabaseOnce(); // 👈 Add this line here just onceawait _seedDatabaseOnce(); // 👈 Add this line here just once
   // 👈 THE FIX: Stop web from crashing by ignoring mobile-only UI commands
@@ -84,7 +84,7 @@ class ZehutApp extends StatelessWidget {
   const ZehutApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+   build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Zehut 2026',
