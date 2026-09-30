@@ -12,7 +12,7 @@ import 'dart:math';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'dart:ui' as ui;
 import 'dart:convert'; // 🎯 Added for Make.com Webhook payload
-import 'package:http/http.dart' as http; // 🎯 Added for Make.com Webhook trigger
+import 'package:http/http.dart' as http; // ß🎯 Added for Make.com Webhook trigger
 
 class VerificationResult {
   final bool isAlreadyVerified;
@@ -31,7 +31,11 @@ class VerificationResult {
 class AppState {
   final navIndex = ValueNotifier<int>(0);
 
-  // Single source of truth for auth state
+// 🎯 ADD THESE 4 LINES TO SHARE THE VIDEO WITH THE SCRUBBER
+  final ValueNotifier<bool> isFeedEditMode = ValueNotifier<bool>(false);
+  final ValueNotifier<dynamic> editVideoController = ValueNotifier<dynamic>(null);
+  final ValueNotifier<String> editWaveformUrl = ValueNotifier<String>('');
+  final ValueNotifier<List<dynamic>> editTrackWords = ValueNotifier<List<dynamic>>([]); // Single source of truth for auth state
   final isLoggedIn = ValueNotifier<bool>(false);
   final userPhone = ValueNotifier<String?>(null);
   final userUid = ValueNotifier<String?>(null);
