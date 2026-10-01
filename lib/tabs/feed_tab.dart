@@ -34,6 +34,7 @@ class _FeedTabState extends State<FeedTab> {
   String? _lastVideoId;
   Map<int, double> _hebOverrides = {};
   Map<int, double> _engOverrides = {};
+  final ValueNotifier<int> manualEditRow = ValueNotifier<int>(0);
 
   final ValueNotifier<int> _currentScrollNotifier = ValueNotifier<int>(0);
   final ValueNotifier<bool> _isGlobalMuted = ValueNotifier<bool>(true);
@@ -42,6 +43,7 @@ class _FeedTabState extends State<FeedTab> {
   String? _authCode;
   final TextEditingController _phoneController = TextEditingController();
   bool _hasSwipedFeed = false;
+  bool sessionAudioUnlocked = false;
 
   StreamSubscription<QuerySnapshot>? _feedSubscription;
 
@@ -401,10 +403,10 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
   }
 
-  Widget _buildFeedFlashcardRow(List<dynamic> trackWords, int currentMillis, String lang, double videoHeight, double videoWidth) {
+  Widget _buildFeedFlashcardRow(List<dynamic> trackWords, int currentMillis, String lang, double videoHeight, double videoWidth, int activeGroup) {
     if (trackWords.isEmpty) return const SizedBox.shrink();
 
-    int activeGroup = _calculateFocusGroup(currentMillis, trackWords);
+    // 🎯 We now use the passed-in activeGroup (which listens to manualRow in edit mode)
     int startIndex = activeGroup * 3;
     int endIndex = (startIndex + 3 > trackWords.length) ? trackWords.length : startIndex + 3;
     List<dynamic> activeTriplets = trackWords.sublist(startIndex, endIndex);
@@ -454,19 +456,32 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 
   double _getLocalStickyY(int targetGroup, Map<int, double> overrides, double fallback) {
-    for (int i = targetGroup; i >= 0; i--) {
-      if (overrides.containsKey(i)) return overrides[i]!;
+    // 1. If this exact row was moved, use its specific position (Local Exception)
+    if (overrides.containsKey(targetGroup)) {
+      return overrides[targetGroup]!;
     }
+
+    // 2. Otherwise, check if Row 1 (group 0) was set and use it as the Master Baseline
+    if (overrides.containsKey(0)) {
+      return overrides[0]!;
+    }
+
+    // 3. If neither is set, use the hardcoded default
     return fallback;
   }
 
   double _getSavedStickyY(int targetGroup, List<dynamic> words, double defaultY) {
-    for (int i = targetGroup; i >= 0; i--) {
-      int idx = i * 3;
-      if (idx < words.length && words[idx] is Map && words[idx]['y'] != null) {
-        return (words[idx]['y'] as num).toDouble();
-      }
+    // 1. Exact match for the current row (Local Exception)
+    int exactIdx = targetGroup * 3;
+    if (exactIdx < words.length && words[exactIdx] is Map && words[exactIdx]['y'] != null) {
+      return (words[exactIdx]['y'] as num).toDouble();
     }
+
+    // 2. Master Baseline check (Row 1 / group 0)
+    if (words.isNotEmpty && words[0] is Map && words[0]['y'] != null) {
+      return (words[0]['y'] as num).toDouble();
+    }
+
     return defaultY;
   }
 
@@ -478,10 +493,22 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
     if (user != null) {
       try {
-        final String safePhone = user.uid.replaceAll('+', '').trim();
-        final doc = await FirebaseFirestore.instance.collection('admins').doc(safePhone).get();
-        if (doc.exists) {
-          isAdminUser = true;
+        final String rawId = (user.phoneNumber != null && user.phoneNumber!.isNotEmpty)
+            ? user.phoneNumber!
+            : user.uid;
+
+        final String safePhone = rawId.replaceAll('+', '').trim();
+
+        if (safePhone.isNotEmpty && safePhone.length > 5) {
+          final doc = await FirebaseFirestore.instance.collection('admins').doc(safePhone).get();
+
+          // Check if document exists AND the isAdmin field is explicitly true
+          if (doc.exists) {
+            final data = doc.data();
+            if (data != null && data['isAdmin'] == true) {
+              isAdminUser = true;
+            }
+          }
         }
       } catch (e) {
         debugPrint("Admin check failed: $e");
@@ -935,6 +962,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           ),
 
         // 4. TOP LAYER: Touchable, Draggable Subtitles
+        // 4. TOP LAYER: Touchable, Draggable Subtitles
         if (_isInitialized && _controller != null)
           FittedBox(
             fit: BoxFit.cover,
@@ -944,102 +972,80 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
               child: AnimatedBuilder(
                 animation: _controller!,
                 builder: (context, child) {
-                  final currentMillis = _controller!.value.position.inMilliseconds;
-                  final bool showHeb = widget.videoData['showHebrew'] == true;
-                  final bool showEng = widget.videoData['showEnglish'] == true;
-                  final List<dynamic> hebWords = widget.videoData['syncedWords'] ?? [];
-                  final List<dynamic> engWords = widget.videoData['syncedWordsEN'] ?? [];
+                  return ValueListenableBuilder<int>(
+                    valueListenable: di<AppState>().manualEditRow,
+                    builder: (context, manualRow, _) {
+                      final currentMillis = _controller!.value.position.inMilliseconds;
+                      final bool showHeb = widget.videoData['showHebrew'] == true || isAdmin;
+                      final bool showEng = widget.videoData['showEnglish'] == true || isAdmin;
+                      final List<dynamic> hebWords = widget.videoData['syncedWords'] ?? [];
+                      final List<dynamic> engWords = widget.videoData['syncedWordsEN'] ?? [];
 
-                  final int hebGroup = _calculateFocusGroup(currentMillis, hebWords);
-                  final int engGroup = _calculateFocusGroup(currentMillis, engWords);
+                      // 🎯 Detaches text from video time during edit mode
+                      final int hebGroup = (isAdmin && widget.isEditMode) ? manualRow : _calculateFocusGroup(currentMillis, hebWords);
+                      final int engGroup = (isAdmin && widget.isEditMode) ? manualRow : _calculateFocusGroup(currentMillis, engWords);
 
-                  final double defaultHeb = widget.videoData['hebrewYPos']?.toDouble() ?? 0.1;
-                  final double defaultEng = widget.videoData['englishYPos']?.toDouble() ?? 0.65;
+                      final double defaultHeb = widget.videoData['hebrewYPos']?.toDouble() ?? 0.1;
+                      final double defaultEng = widget.videoData['englishYPos']?.toDouble() ?? 0.65;
 
-                  final double savedHebY = _getSavedStickyY(hebGroup, hebWords, defaultHeb);
-                  final double savedEngY = _getSavedStickyY(engGroup, engWords, defaultEng);
+                      final double savedHebY = _getSavedStickyY(hebGroup, hebWords, defaultHeb);
+                      final double savedEngY = _getSavedStickyY(engGroup, engWords, defaultEng);
 
-                  final double hebY = _getLocalStickyY(hebGroup, _hebOverrides, savedHebY);
-                  final double engY = _getLocalStickyY(engGroup, _engOverrides, savedEngY);
+                      final double hebY = _getLocalStickyY(hebGroup, _hebOverrides, savedHebY);
+                      final double engY = _getLocalStickyY(engGroup, _engOverrides, savedEngY);
 
-                  return Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      if (showHeb)
-                        Positioned(
-                          top: videoHeight * hebY,
-                          left: 0, right: 0,
-                          child: (isAdmin && widget.isEditMode)
-                              ? GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onPanUpdate: (details) {
-                              double newY = hebY + (details.delta.dy / videoHeight);
-                              setState(() => _hebOverrides[hebGroup] = newY.clamp(0.0, 1.0));
-                            },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.black54,
-                                border: Border.all(color: Colors.yellowAccent, width: 2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              padding: EdgeInsets.symmetric(vertical: videoHeight * 0.05),
-                              child: _buildFeedFlashcardRow(hebWords, currentMillis, 'hebrew', videoHeight, videoWidth),
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          if (showHeb)
+                            Positioned(
+                              top: videoHeight * hebY,
+                              left: 0, right: 0,
+                              child: (isAdmin && widget.isEditMode)
+                                  ? GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onVerticalDragUpdate: (details) { // 🎯 Switched to vertical drag
+                                  double newY = hebY + (details.delta.dy / videoHeight);
+                                  setState(() => _hebOverrides[hebGroup] = newY.clamp(0.0, 1.0));
+                                },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 30.0), // 🎯 Massive hitbox
+                                  child: _buildFeedFlashcardRow(hebWords, currentMillis, 'hebrew', videoHeight, videoWidth, hebGroup),
+                                ),
+                              )
+                                  : _buildFeedFlashcardRow(hebWords, currentMillis, 'hebrew', videoHeight, videoWidth, hebGroup),
                             ),
-                          )
-                              : _buildFeedFlashcardRow(hebWords, currentMillis, 'hebrew', videoHeight, videoWidth),
-                        ),
-                      if (showEng)
-                        Positioned(
-                          top: videoHeight * engY,
-                          left: 0, right: 0,
-                          child: (isAdmin && widget.isEditMode)
-                              ? GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onPanUpdate: (details) {
-                              double newY = engY + (details.delta.dy / videoHeight);
-                              setState(() => _engOverrides[engGroup] = newY.clamp(0.0, 1.0));
-                            },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.black54,
-                                border: Border.all(color: Colors.yellowAccent, width: 2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              padding: EdgeInsets.symmetric(vertical: videoHeight * 0.05),
-                              child: _buildFeedFlashcardRow(engWords, currentMillis, 'english', videoHeight, videoWidth),
+                          if (showEng)
+                            Positioned(
+                              top: videoHeight * engY,
+                              left: 0, right: 0,
+                              child: (isAdmin && widget.isEditMode)
+                                  ? GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onVerticalDragUpdate: (details) { // 🎯 Switched to vertical drag
+                                  double newY = engY + (details.delta.dy / videoHeight);
+                                  setState(() => _engOverrides[engGroup] = newY.clamp(0.0, 1.0));
+                                },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 30.0), // 🎯 Massive hitbox
+                                  child: _buildFeedFlashcardRow(engWords, currentMillis, 'english', videoHeight, videoWidth, engGroup),
+                                ),
+                              )
+                                  : _buildFeedFlashcardRow(engWords, currentMillis, 'english', videoHeight, videoWidth, engGroup),
                             ),
-                          )
-                              : _buildFeedFlashcardRow(engWords, currentMillis, 'english', videoHeight, videoWidth),
-                        ),
 
-                      // 🎯 VERTICAL SLIDERS
-                      if (isAdmin && widget.isEditMode) ...[
-                        if (hebWords.isNotEmpty)
-                          Positioned(
-                            right: 15, top: 150, bottom: 250,
-                            child: RotatedBox(
-                              quarterTurns: 3,
-                              child: Slider(
-                                  value: hebY.clamp(0.0, 1.0),
-                                  activeColor: Colors.lightBlueAccent,
-                                  onChanged: (val) { setState(() { _hebOverrides[hebGroup] = val; }); }
-                              ),
-                            ),
-                          ),
-                        if (engWords.isNotEmpty)
-                          Positioned(
-                            left: 15, top: 150, bottom: 250,
-                            child: RotatedBox(
-                              quarterTurns: 3,
-                              child: Slider(
-                                  value: engY.clamp(0.0, 1.0),
-                                  activeColor: Colors.orangeAccent,
-                                  onChanged: (val) { setState(() { _engOverrides[engGroup] = val; }); }
-                              ),
-                            ),
-                          ),
-                      ]
-                    ],
+
+                        ],
+                      );
+                    },
                   );
                 },
               ),
@@ -1049,41 +1055,56 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         // 🎯 THE ADMIN EDIT TOGGLE BUTTON (WITH CANCEL)
         if (isAdmin)
           Positioned(
-            top: 70,
-            right: 15,
+            top: 15,
+            left: 0,
+            right: 0,
             child: Row(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (widget.isEditMode)
                   GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: () {
                       setState(() {
                         _hebOverrides.clear();
                         _engOverrides.clear();
                       });
-                      widget.onToggleEditMode(false); // 🎯 Tells AppState to hide scrubber and show nav bar
+                      widget.onToggleEditMode(false);
                     },
                     child: Container(
-                      margin: const EdgeInsets.only(right: 10),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      margin: const EdgeInsets.only(right: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade900,
-                        borderRadius: BorderRadius.circular(30),
+                        borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: Colors.redAccent, width: 2),
                       ),
-                      child: const Text("CANCEL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                      child: const Text("CANCEL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                     ),
                   ),
+
                 GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () {
                     if (!widget.isEditMode) {
-                      // 🎯 TURNING ON: Send the controller & data up to main_shell for the Scrubber NavBar
+                      _controller?.pause();
+                      setState(() { _showUi = true; _isPlaying = false; });
+
+                      final List<dynamic> hebW = widget.videoData['syncedWords'] ?? [];
+                      final List<dynamic> engW = widget.videoData['syncedWordsEN'] ?? [];
+                      final List<dynamic> targetW = hebW.isNotEmpty ? hebW : engW;
+
+                      di<AppState>().manualEditRow.value = _calculateFocusGroup(_controller?.value.position.inMilliseconds ?? 0, targetW);
+
                       di<AppState>().editVideoController.value = _controller;
-                      di<AppState>().editWaveformUrl.value = widget.videoData['waveformUrl'] ?? 'https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/${widget.videoData['id']}_wave.png?v=3';
-                      di<AppState>().editTrackWords.value = widget.videoData['showHebrew'] == true ? (widget.videoData['syncedWords'] ?? []) : (widget.videoData['syncedWordsEN'] ?? []);
+                      di<AppState>().editWaveformUrl.value = widget.videoData['waveformUrl'] ?? '';
+                      di<AppState>().editTrackWords.value = targetW;
+
                       widget.onToggleEditMode(true);
                     } else {
-                      // 🎯 TURNING OFF / SAVING
+                      _controller?.pause();
+                      setState(() { _isPlaying = false; });
+
                       final List<dynamic> hebWords = widget.videoData['syncedWords'] ?? [];
                       final List<dynamic> engWords = widget.videoData['syncedWordsEN'] ?? [];
 
@@ -1117,22 +1138,16 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                     }
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: widget.isEditMode ? Colors.redAccent : Colors.black87,
-                      borderRadius: BorderRadius.circular(30),
+                      color: widget.isEditMode ? Colors.lightBlue : Colors.black87,
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: Colors.white, width: 2),
-                      boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 4))],
+                      boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 2))],
                     ),
-                    child: Row(
-                      children: [
-                        Icon(widget.isEditMode ? Icons.save : Icons.edit, color: Colors.white, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          widget.isEditMode ? "SAVE POSITIONS" : "EDIT SUBS",
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
-                      ],
+                    child: Text(
+                      widget.isEditMode ? "SAVE" : "EDIT SUBS",
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                     ),
                   ),
                 ),
@@ -1228,7 +1243,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         ),
 
         // 8. Bottom UI Layer
-        // 🎯 Rests perfectly at the bottom. Scaffold automatically shifts it up to sit on top of whichever Bottom Nav Bar is active.
         Positioned(
           bottom: kIsWeb && html.window.matchMedia('(display-mode: standalone)').matches ? 15.0 : 5.0,
           left: 0,
@@ -1356,9 +1370,3 @@ Widget _buildActionButton(IconData icon, String label, Color color, {VoidCallbac
     ),
   );
 }
-
-
-
-
-
-

@@ -933,6 +933,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
 
 
 // ZONE 3: CONTROLS (Slim Profile & Bottom Aligned)
+              // ZONE 3: CONTROLS (Slim Profile & Bottom Aligned)
               Container(
                 color: Colors.black,
                 padding: const EdgeInsets.only(top: 5, bottom: 0),
@@ -940,14 +941,14 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    // ⏪ NEW: Rewind 3 Words
+                    // 🔇 REPLACED REWIND WITH MUTE
                     IconButton(
                       iconSize: 32,
                       padding: const EdgeInsets.only(bottom: 8),
                       alignment: Alignment.bottomCenter,
-                      color: Colors.orangeAccent,
-                      icon: const Icon(Icons.fast_rewind),
-                      onPressed: _jumpPrevious3Words,
+                      color: _isMuted ? Colors.grey : Colors.orangeAccent,
+                      icon: Icon(_isMuted ? Icons.volume_off : Icons.volume_up),
+                      onPressed: _toggleMute,
                     ),
                     IconButton(
                       iconSize: 28,
@@ -973,14 +974,20 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                       icon: const Icon(Icons.add),
                       onPressed: _addNextMarker,
                     ),
-                    // ⏩ NEW: Fast Forward 3 Words
-                    IconButton(
-                      iconSize: 32,
+                    // ⏩ REPLACED FAST FORWARD WITH SPEED SELECTOR
+                    Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      alignment: Alignment.bottomCenter,
-                      color: Colors.orangeAccent,
-                      icon: const Icon(Icons.fast_forward),
-                      onPressed: _jumpNext3Words,
+                      child: TextButton(
+                        onPressed: _cycleSpeed,
+                        child: Text(
+                          "${_playbackSpeed}x",
+                          style: const TextStyle(
+                              color: Colors.orangeAccent,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),

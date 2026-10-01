@@ -42,6 +42,7 @@ class AppState {
   final a2hsCount = ValueNotifier<int>(0);
   final targetVideo = ValueNotifier<String?>(null);
   final savedClips = ValueNotifier<List<String>>([]);
+  final ValueNotifier<int> manualEditRow = ValueNotifier<int>(0);
 
   // Global Admin State
   final isAdmin = ValueNotifier<bool>(false);
