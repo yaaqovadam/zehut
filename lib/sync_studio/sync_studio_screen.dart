@@ -350,25 +350,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
       _silentAutoSave();
     }
   }
-  void _jumpPrevious3Words() {
-    final currentMillis = _videoController.value.position.inMilliseconds;
-    int activeGroup = _calculateFocusGroup(currentMillis, _activeWords);
-    if (activeGroup > 0) {
-      int wordIndex = (activeGroup - 1) * 3;
-      if (wordIndex < _activeWords.length && _activeWords[wordIndex]['startMs'] != null) {
-        _videoController.seekTo(Duration(milliseconds: _activeWords[wordIndex]['startMs'] as int));
-      }
-    }
-  }
 
-  void _jumpNext3Words() {
-    final currentMillis = _videoController.value.position.inMilliseconds;
-    int activeGroup = _calculateFocusGroup(currentMillis, _activeWords);
-    int wordIndex = (activeGroup + 1) * 3;
-    if (wordIndex < _activeWords.length && _activeWords[wordIndex]['startMs'] != null) {
-      _videoController.seekTo(Duration(milliseconds: _activeWords[wordIndex]['startMs'] as int));
-    }
-  }
   void _togglePlayStop() {
     if (_videoController.value.isPlaying) {
       _videoController.pause();
