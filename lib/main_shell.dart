@@ -268,10 +268,16 @@ Widget _buildNavItem({
     ),
   );
 }
-
-// 🎯 THE CUSTOM SCRUBBER NAVIGATION BAR
-class EditScrubberNavBar extends WatchingWidget {
+class EditScrubberNavBar extends WatchingStatefulWidget {
   const EditScrubberNavBar({super.key});
+
+  @override
+  State<EditScrubberNavBar> createState() => _EditScrubberNavBarState();
+}
+
+class _EditScrubberNavBarState extends State<EditScrubberNavBar> {
+  // Holds the position ONLY while your finger is on the screen
+  double? _dragValue;
 
   int _calculateFocusGroup(int currentMillis, List<dynamic> trackWords) {
     int lastDroppedTotal = trackWords.lastIndexWhere((w) => w['startMs'] != null);
@@ -304,59 +310,105 @@ class EditScrubberNavBar extends WatchingWidget {
         int totalRows = (trackWords.length / 3).ceil();
         int activeRow = _calculateFocusGroup(currentMillis, trackWords);
 
-        return Container(
-          height: isStandalone ? 75.0 : 65.0,
-          padding: EdgeInsets.only(left: 15, right: 15, bottom: isStandalone ? 15.0 : 0.0),
-          decoration: const BoxDecoration(
-            color: Colors.black,
-            border: Border(top: BorderSide(color: Colors.redAccent, width: 2)),
-          ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Positioned.fill(
-                child: Opacity(
-                  opacity: 0.6,
-                  child: Image.network(
-                    waveformUrl,
-                    fit: BoxFit.fill,
-                    errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
-                  ),
-                ),
-              ),
-              Row(
+        // 🎯 If dragging, show drag position. Otherwise, show video position.
+        double displayValue = _dragValue ?? activeRow.clamp(0, totalRows > 0 ? totalRows - 1 : 0).toDouble();
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // PLAY / PAUSE BUTTONS
+            Container(
+              color: Colors.black,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Expanded(
-                    child: SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                          trackHeight: 4.0,
-                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10.0),
-                          overlayShape: const RoundSliderOverlayShape(overlayRadius: 24.0)
-                      ),
-                      child: Slider(
-                        value: activeRow.clamp(0, totalRows > 0 ? totalRows - 1 : 0).toDouble(),
-                        min: 0.0,
-                        max: (totalRows > 0 ? totalRows - 1 : 0).toDouble(),
-                        divisions: totalRows > 1 ? totalRows - 1 : 1,
-                        activeColor: Colors.redAccent,
-                        inactiveColor: Colors.white38,
-                        onChanged: (val) {
-                          int targetRow = val.toInt();
-                          int wordIndex = targetRow * 3;
-                          if (wordIndex < trackWords.length && trackWords[wordIndex]['startMs'] != null) {
-                            int targetMs = (trackWords[wordIndex]['startMs'] as num).toInt();
-                            controller.seekTo(Duration(milliseconds: targetMs));
-                          }
-                        },
-                      ),
+                  IconButton(
+                    icon: Icon(
+                      controller.value.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                      color: Colors.lightBlue,
+                      size: 40,
                     ),
+                    onPressed: () {
+                      controller.value.isPlaying ? controller.pause() : controller.play();
+                    },
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+
+            // WAVEFORM SCRUBBER
+            Container(
+              height: isStandalone ? 75.0 : 65.0,
+              padding: EdgeInsets.only(left: 15, right: 15, bottom: isStandalone ? 15.0 : 0.0),
+              decoration: const BoxDecoration(
+                color: Colors.black,
+                border: Border(top: BorderSide(color: Colors.redAccent, width: 2)),
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned.fill(
+                    child: Opacity(
+                      opacity: 0.6,
+                      child: Image.network(
+                        waveformUrl,
+                        fit: BoxFit.fill,
+                        errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                              trackHeight: 12.0, // 🎯 Thicker invisible track to catch hits
+                              // 🎯 Massive hit boxes so it never fails a touch event
+                              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 18.0),
+                              overlayShape: const RoundSliderOverlayShape(overlayRadius: 40.0)
+                          ),
+                          child: Slider(
+                            value: displayValue,
+                            min: 0.0,
+                            max: (totalRows > 0 ? totalRows - 1 : 0).toDouble(),
+                            divisions: totalRows > 1 ? totalRows - 1 : 1,
+                            activeColor: Colors.redAccent,
+                            inactiveColor: Colors.white38,
+
+                            // 🎯 1. Stops the dot from fighting you when you touch it
+                            onChangeStart: (val) {
+                              setState(() { _dragValue = val; });
+                            },
+
+                            // 🎯 2. Updates visually while your finger moves
+                            onChanged: (val) {
+                              setState(() { _dragValue = val; });
+                            },
+
+                            // 🎯 3. Jumps the video ONLY when you let go
+                            onChangeEnd: (val) {
+                              int targetRow = val.toInt();
+                              int wordIndex = targetRow * 3;
+                              if (wordIndex < trackWords.length && trackWords[wordIndex]['startMs'] != null) {
+                                int targetMs = (trackWords[wordIndex]['startMs'] as num).toInt();
+                                controller.seekTo(Duration(milliseconds: targetMs));
+                              }
+                              // Release the drag lock
+                              setState(() { _dragValue = null; });
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         );
       },
     );
   }
 }
+

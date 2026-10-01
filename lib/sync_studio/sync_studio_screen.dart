@@ -350,7 +350,25 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
       _silentAutoSave();
     }
   }
+  void _jumpPrevious3Words() {
+    final currentMillis = _videoController.value.position.inMilliseconds;
+    int activeGroup = _calculateFocusGroup(currentMillis, _activeWords);
+    if (activeGroup > 0) {
+      int wordIndex = (activeGroup - 1) * 3;
+      if (wordIndex < _activeWords.length && _activeWords[wordIndex]['startMs'] != null) {
+        _videoController.seekTo(Duration(milliseconds: _activeWords[wordIndex]['startMs'] as int));
+      }
+    }
+  }
 
+  void _jumpNext3Words() {
+    final currentMillis = _videoController.value.position.inMilliseconds;
+    int activeGroup = _calculateFocusGroup(currentMillis, _activeWords);
+    int wordIndex = (activeGroup + 1) * 3;
+    if (wordIndex < _activeWords.length && _activeWords[wordIndex]['startMs'] != null) {
+      _videoController.seekTo(Duration(milliseconds: _activeWords[wordIndex]['startMs'] as int));
+    }
+  }
   void _togglePlayStop() {
     if (_videoController.value.isPlaying) {
       _videoController.pause();
@@ -924,7 +942,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
               const Spacer(),
 
 
-              // ZONE 3: CONTROLS (Slim Profile & Bottom Aligned)
+// ZONE 3: CONTROLS (Slim Profile & Bottom Aligned)
               Container(
                 color: Colors.black,
                 padding: const EdgeInsets.only(top: 5, bottom: 0),
@@ -932,54 +950,14 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
+                    // ⏪ NEW: Rewind 3 Words
                     IconButton(
-                      iconSize: 24,
+                      iconSize: 32,
                       padding: const EdgeInsets.only(bottom: 8),
                       alignment: Alignment.bottomCenter,
-                      icon: Icon(_isMuted ? Icons.volume_off : Icons.volume_up),
-                      color: Colors.white70,
-                      onPressed: _toggleMute,
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 14.0),
-                      child: PopupMenuButton<double>(
-                        initialValue: _playbackSpeed,
-                        tooltip: 'Playback Speed',
-                        color: const Color(0xFF103856),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        // Pushes the menu upwards so it doesn't render off the bottom of the screen
-                        offset: const Offset(0, -220),
-                        onSelected: (double newSpeed) {
-                          _videoController.setPlaybackSpeed(newSpeed);
-                          setState(() {
-                            _playbackSpeed = newSpeed;
-                          });
-                        },
-                        itemBuilder: (BuildContext context) {
-                          return _speeds.map((double speed) {
-                            return PopupMenuItem<double>(
-                              value: speed,
-                              child: Text(
-                                "${speed}x",
-                                style: TextStyle(
-                                  color: _playbackSpeed == speed ? Colors.lightBlueAccent : Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            );
-                          }).toList();
-                        },
-                        // This child preserves your exact UI styling for the button itself
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                              color: Colors.white24,
-                              borderRadius: BorderRadius.circular(15),
-                              border: Border.all(color: Colors.white54)
-                          ),
-                          child: Text("${_playbackSpeed}x", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                        ),
-                      ),
+                      color: Colors.orangeAccent,
+                      icon: const Icon(Icons.fast_rewind),
+                      onPressed: _jumpPrevious3Words,
                     ),
                     IconButton(
                       iconSize: 28,
@@ -1004,6 +982,15 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                       color: Colors.greenAccent,
                       icon: const Icon(Icons.add),
                       onPressed: _addNextMarker,
+                    ),
+                    // ⏩ NEW: Fast Forward 3 Words
+                    IconButton(
+                      iconSize: 32,
+                      padding: const EdgeInsets.only(bottom: 8),
+                      alignment: Alignment.bottomCenter,
+                      color: Colors.orangeAccent,
+                      icon: const Icon(Icons.fast_forward),
+                      onPressed: _jumpNext3Words,
                     ),
                   ],
                 ),
