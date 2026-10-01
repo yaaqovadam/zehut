@@ -884,11 +884,12 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                           Color lollipopColor = isBlueGroup ? Colors.blue : Colors.deepOrange;
                           int numberInGroup = (index % 3) + 1;
 
+                          // 🎯 Shifted left offset by -30 to account for the new 60px width
                           return Positioned(
-                            left: markerLeftOffset - 18,
+                            left: markerLeftOffset - 30,
                             top: 0,
                             bottom: 0,
-                            width: 36,
+                            width: 60, // 🎯 Massive hit area width
                             child: Column(
                               children: [
                                 Container(width: 2, height: 70, color: Colors.white),
@@ -916,14 +917,21 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                                   onPanEnd: (details) {
                                     _silentAutoSave();
                                   },
+                                  // 🎯 Massive invisible touch target wrapping the small circle
                                   child: Container(
-                                    width: 36,
-                                    height: 36,
-                                    decoration: BoxDecoration(color: lollipopColor, shape: BoxShape.circle),
-                                    child: Center(
-                                      child: Text(
-                                          '$numberInGroup',
-                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)
+                                    width: 60,
+                                    height: 60,
+                                    color: Colors.transparent,
+                                    alignment: Alignment.center,
+                                    child: Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: BoxDecoration(color: lollipopColor, shape: BoxShape.circle),
+                                      child: Center(
+                                        child: Text(
+                                            '$numberInGroup',
+                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)
+                                        ),
                                       ),
                                     ),
                                   ),
