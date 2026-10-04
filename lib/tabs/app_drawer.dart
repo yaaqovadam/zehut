@@ -46,6 +46,7 @@ class AppDrawer extends StatelessWidget {
                   ),
                   onTap: () {
                     Navigator.pop(context);
+                    // 🎯 THIS BRINGS THE ADMIN MANAGER PAGE BACK!
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminFeedManager()));
                   },
                 ),

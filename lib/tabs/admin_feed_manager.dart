@@ -4,12 +4,14 @@ import 'package:easy_localization/easy_localization.dart';
 import 'dart:convert';
 import 'dart:html' as html;
 import 'package:http/http.dart' as http;
+import 'package:watch_it/watch_it.dart';
 import 'dart:io';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:ffmpeg_kit_flutter_min_gpl/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_min_gpl/return_code.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../app_state.dart';
 import '../sync_studio/sync_studio_screen.dart';
 import 'feed_tab.dart';
 
@@ -266,29 +268,15 @@ class _AdminFeedManagerState extends State<AdminFeedManager> {
                         // 🎯 THE BULLETPROOF CLICKABLE MOVIE TICKET (Internal Navigation)
                         // 🎯 NO MORE SQUARE BOX - Pure Film Icon + Circular Number Badge
                         // 🎯 REVERTED: The original simple Light Blue circle, wired up safely.
+                        // 🎯 The new Smart Remote click
                         InkWell(
                           borderRadius: BorderRadius.circular(20),
                           onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => Scaffold(
-                                  appBar: AppBar(
-                                    backgroundColor: const Color(0xFF103856),
-                                    iconTheme: const IconThemeData(color: Colors.white),
-                                    title: Text(
-                                      data['title'] ?? 'Preview',
-                                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                                    ),
-                                    leading: IconButton(
-                                      icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-                                      onPressed: () => Navigator.pop(context),
-                                    ),
-                                  ),
-                                  body: FeedTab(targetVideoId: docs[index].id),
-                                ),
-                              ),
-                            );
+                            // 1. Tell the app which video to target
+                            di<AppState>().targetVideo.value = docs[index].id;
+
+                            // 2. Close the Admin Manager to reveal the main feed underneath
+                            Navigator.pop(context);
                           },
                           child: CircleAvatar(
                             backgroundColor: isOnline ? Colors.lightBlue : Colors.grey.shade500,

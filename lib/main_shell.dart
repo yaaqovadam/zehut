@@ -14,6 +14,7 @@ import 'tabs/vanguard_tab.dart';
 import 'common/common.dart';
 import 'app_state.dart';
 import 'dart:html' as html;
+import 'tabs/settings_tab.dart'; // 🎯 Add this import
 
 // Import the new drawer we created
 import 'tabs/app_drawer.dart';
@@ -36,6 +37,7 @@ class MainShell extends WatchingWidget {
       const VanguardTab(),
       const PlanTab(),
       const ActionTab(),
+      const SettingsTab(), // 🎯 Add the 5th view here
     ];
 
     final phone = watchValue((AppState s) => s.userPhone);
@@ -208,6 +210,9 @@ class MainShell extends WatchingWidget {
                   _buildNavItem(icon: Icons.shield, label: 'tab_vanguard'.tr(), index: 1, currentIndex: currentIndex),
                   _buildNavItem(icon: Icons.view_carousel, label: 'tab_100_days'.tr(), index: 2, currentIndex: currentIndex),
                   _buildNavItem(icon: Icons.group, label: 'tab_action'.tr(), index: 3, currentIndex: currentIndex),
+                  _buildNavItem(icon: Icons.settings, label: 'Settings', index: 4, currentIndex: currentIndex), // 🎯 Add Settings button
+
+
                 ],
               ),
             ),

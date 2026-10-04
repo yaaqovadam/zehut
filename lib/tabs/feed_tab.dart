@@ -75,6 +75,19 @@ class _FeedTabState extends State<FeedTab> {
     super.initState();
     _nukeSafariPlayButton();
 
+    // 🎯 NEW: Listen for remote jump commands from the Admin Manager
+    di<AppState>().targetVideo.addListener(() {
+      final target = di<AppState>().targetVideo.value;
+      if (target != null && _feedVideos.isNotEmpty && _pageController.hasClients) {
+        int foundIndex = _feedVideos.indexWhere((v) => v['id'] == target);
+        if (foundIndex != -1) {
+          int virtualMiddleIndex = (_feedVideos.length * 500) + foundIndex;
+          _pageController.jumpToPage(virtualMiddleIndex);
+          di<AppState>().targetVideo.value = null; // Reset the trap
+        }
+      }
+    });
+
     SharedPreferences.getInstance().then((prefs) {
       if (mounted) {
         setState(() {
@@ -96,7 +109,15 @@ class _FeedTabState extends State<FeedTab> {
       final List<Map<String, dynamic>> loadedVideos = snapshot.docs
           .where((doc) {
         final data = doc.data();
-        return data['online'] != false && data['online'] != 'false';
+
+        // 1. Is the video marked as online?
+        final bool isOnline = data['online'] != false && data['online'] != 'false';
+
+        // 2. Is the user a verified admin AND do they have the override toggle turned on?
+        final bool adminOverride = di<AppState>().isAdmin.value && di<AppState>().adminShowOffline.value;
+
+        // 3. Show the video if either condition is true
+        return isOnline || adminOverride;
       })
           .map((doc) {
         final data = doc.data();
@@ -972,29 +993,40 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
               child: AnimatedBuilder(
                 animation: _controller!,
                 builder: (context, child) {
-                  return ValueListenableBuilder<int>(
-                    valueListenable: di<AppState>().manualEditRow,
-                    builder: (context, manualRow, _) {
-                      final currentMillis = _controller!.value.position.inMilliseconds;
-                      final bool showHeb = widget.videoData['showHebrew'] == true || isAdmin;
-                      final bool showEng = widget.videoData['showEnglish'] == true || isAdmin;
-                      final List<dynamic> hebWords = widget.videoData['syncedWords'] ?? [];
-                      final List<dynamic> engWords = widget.videoData['syncedWordsEN'] ?? [];
+    return ValueListenableBuilder<int>(
+    valueListenable: di<AppState>().manualEditRow,
+    builder: (context, manualRow, _) {
+    // 🎯 NEW: We are now listening to your Settings toggle!
+    return ValueListenableBuilder<bool>(
+    valueListenable: di<AppState>().adminForceShowSubs,
+    builder: (context, forceShow, _) {
 
-                      // 🎯 Detaches text from video time during edit mode
-                      final int hebGroup = (isAdmin && widget.isEditMode) ? manualRow : _calculateFocusGroup(currentMillis, hebWords);
-                      final int engGroup = (isAdmin && widget.isEditMode) ? manualRow : _calculateFocusGroup(currentMillis, engWords);
+    final currentMillis = _controller!.value.position.inMilliseconds;
 
-                      final double defaultHeb = widget.videoData['hebrewYPos']?.toDouble() ?? 0.1;
-                      final double defaultEng = widget.videoData['englishYPos']?.toDouble() ?? 0.65;
+    // 1. Safely check if the public Sync Studio toggle is ON
+    final bool isGlobalHebOn = widget.videoData['showHebrew'] == true || widget.videoData['showHebrew'] == 'true';
+    final bool isGlobalEngOn = widget.videoData['showEnglish'] == true || widget.videoData['showEnglish'] == 'true';
 
-                      final double savedHebY = _getSavedStickyY(hebGroup, hebWords, defaultHeb);
-                      final double savedEngY = _getSavedStickyY(engGroup, engWords, defaultEng);
+    // 2. ONLY force them on if: Public is ON, OR your Settings Toggle is ON, OR you clicked "EDIT SUBS"
+    final bool showHeb = isGlobalHebOn || (isAdmin && forceShow) || (isAdmin && widget.isEditMode);
+    final bool showEng = isGlobalEngOn || (isAdmin && forceShow) || (isAdmin && widget.isEditMode);
 
-                      final double hebY = _getLocalStickyY(hebGroup, _hebOverrides, savedHebY);
-                      final double engY = _getLocalStickyY(engGroup, _engOverrides, savedEngY);
+    final List<dynamic> hebWords = widget.videoData['syncedWords'] ?? [];
+    final List<dynamic> engWords = widget.videoData['syncedWordsEN'] ?? [];
 
-                      return Stack(
+    final int hebGroup = (isAdmin && widget.isEditMode) ? manualRow : _calculateFocusGroup(currentMillis, hebWords);
+    final int engGroup = (isAdmin && widget.isEditMode) ? manualRow : _calculateFocusGroup(currentMillis, engWords);
+
+    final double defaultHeb = widget.videoData['hebrewYPos']?.toDouble() ?? 0.1;
+    final double defaultEng = widget.videoData['englishYPos']?.toDouble() ?? 0.65;
+
+    final double savedHebY = _getSavedStickyY(hebGroup, hebWords, defaultHeb);
+    final double savedEngY = _getSavedStickyY(engGroup, engWords, defaultEng);
+
+    final double hebY = _getLocalStickyY(hebGroup, _hebOverrides, savedHebY);
+    final double engY = _getLocalStickyY(engGroup, _engOverrides, savedEngY);
+
+    return Stack(
                         clipBehavior: Clip.none,
                         children: [
                           if (showHeb)
@@ -1042,118 +1074,128 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                                   : _buildFeedFlashcardRow(engWords, currentMillis, 'english', videoHeight, videoWidth, engGroup),
                             ),
 
-
                         ],
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-          ),
-
-        // 🎯 THE ADMIN EDIT TOGGLE BUTTON (WITH CANCEL)
-        if (isAdmin)
+    ); // 1. Closes the Stack
+    }, // 2. Closes the forceShow builder
+    ); // 3. Closes the forceShow ValueListenableBuilder
+    }, // 4. Closes the manualRow builder
+    ); // 5. Closes the manualRow ValueListenableBuilder
+                }, // 6. Closes the AnimatedBuilder builder
+              ), // 7. Closes the AnimatedBuilder
+            ), // 8. Closes the SizedBox
+          ), // 9. Closes the FittedBox
+// 🎯 THE ADMIN EDIT TOGGLE BUTTON (WITH CANCEL)
+        if (di<AppState>().isAdmin.value)
           Positioned(
             top: 15,
             left: 0,
             right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (widget.isEditMode)
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      setState(() {
-                        _hebOverrides.clear();
-                        _engOverrides.clear();
-                      });
-                      widget.onToggleEditMode(false);
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 12),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade900,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.redAccent, width: 2),
+            child: ValueListenableBuilder<bool>(
+              valueListenable: di<AppState>().adminShowEditButton,
+              builder: (context, showEditBtn, _) {
+                // 🎯 Hide if disabled, UNLESS we are currently editing and need the Save/Cancel buttons
+                if (!showEditBtn && !widget.isEditMode) return const SizedBox.shrink();
+
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (widget.isEditMode)
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          setState(() {
+                            _hebOverrides.clear();
+                            _engOverrides.clear();
+                          });
+                          widget.onToggleEditMode(false);
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade900,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.redAccent, width: 2),
+                          ),
+                          child: const Text("CANCEL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                        ),
                       ),
-                      child: const Text("CANCEL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                    ),
-                  ),
 
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    if (!widget.isEditMode) {
-                      _controller?.pause();
-                      setState(() { _showUi = true; _isPlaying = false; });
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        if (!widget.isEditMode) {
+                          _controller?.pause();
+                          setState(() { _showUi = true; _isPlaying = false; });
 
-                      final List<dynamic> hebW = widget.videoData['syncedWords'] ?? [];
-                      final List<dynamic> engW = widget.videoData['syncedWordsEN'] ?? [];
-                      final List<dynamic> targetW = hebW.isNotEmpty ? hebW : engW;
+                          final List<dynamic> hebW = widget.videoData['syncedWords'] ?? [];
+                          final List<dynamic> engW = widget.videoData['syncedWordsEN'] ?? [];
+                          final List<dynamic> targetW = hebW.isNotEmpty ? hebW : engW;
 
-                      di<AppState>().manualEditRow.value = _calculateFocusGroup(_controller?.value.position.inMilliseconds ?? 0, targetW);
+                          di<AppState>().manualEditRow.value = _calculateFocusGroup(_controller?.value.position.inMilliseconds ?? 0, targetW);
 
-                      di<AppState>().editVideoController.value = _controller;
-                      di<AppState>().editWaveformUrl.value = widget.videoData['waveformUrl'] ?? '';
-                      di<AppState>().editTrackWords.value = targetW;
+                          di<AppState>().editVideoController.value = _controller;
+                          di<AppState>().editWaveformUrl.value = widget.videoData['waveformUrl'] ?? '';
+                          di<AppState>().editTrackWords.value = targetW;
 
-                      widget.onToggleEditMode(true);
-                    } else {
-                      _controller?.pause();
-                      setState(() { _isPlaying = false; });
+                          widget.onToggleEditMode(true);
+                        } else {
+                          _controller?.pause();
+                          setState(() { _isPlaying = false; });
 
-                      final List<dynamic> hebWords = widget.videoData['syncedWords'] ?? [];
-                      final List<dynamic> engWords = widget.videoData['syncedWordsEN'] ?? [];
+                          final List<dynamic> hebWords = widget.videoData['syncedWords'] ?? [];
+                          final List<dynamic> engWords = widget.videoData['syncedWordsEN'] ?? [];
 
-                      if (_hebOverrides.isNotEmpty) {
-                        List<dynamic> updatedHeb = List.from(hebWords);
-                        _hebOverrides.forEach((group, yVal) {
-                          int idx = group * 3;
-                          if (idx < updatedHeb.length) {
-                            updatedHeb[idx] = Map<String, dynamic>.from(updatedHeb[idx]);
-                            updatedHeb[idx]['y'] = yVal;
+                          if (_hebOverrides.isNotEmpty) {
+                            List<dynamic> updatedHeb = List.from(hebWords);
+                            _hebOverrides.forEach((group, yVal) {
+                              int idx = group * 3;
+                              if (idx < updatedHeb.length) {
+                                updatedHeb[idx] = Map<String, dynamic>.from(updatedHeb[idx]);
+                                updatedHeb[idx]['y'] = yVal;
+                              }
+                            });
+                            _updateSubtitlePosition('syncedWords', updatedHeb);
                           }
-                        });
-                        _updateSubtitlePosition('syncedWords', updatedHeb);
-                      }
 
-                      if (_engOverrides.isNotEmpty) {
-                        List<dynamic> updatedEng = List.from(engWords);
-                        _engOverrides.forEach((group, yVal) {
-                          int idx = group * 3;
-                          if (idx < updatedEng.length) {
-                            updatedEng[idx] = Map<String, dynamic>.from(updatedEng[idx]);
-                            updatedEng[idx]['y'] = yVal;
+                          if (_engOverrides.isNotEmpty) {
+                            List<dynamic> updatedEng = List.from(engWords);
+                            _engOverrides.forEach((group, yVal) {
+                              int idx = group * 3;
+                              if (idx < updatedEng.length) {
+                                updatedEng[idx] = Map<String, dynamic>.from(updatedEng[idx]);
+                                updatedEng[idx]['y'] = yVal;
+                              }
+                            });
+                            _updateSubtitlePosition('syncedWordsEN', updatedEng);
                           }
-                        });
-                        _updateSubtitlePosition('syncedWordsEN', updatedEng);
-                      }
 
-                      _hebOverrides.clear();
-                      _engOverrides.clear();
-                      widget.onToggleEditMode(false);
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: widget.isEditMode ? Colors.lightBlue : Colors.black87,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white, width: 2),
-                      boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 2))],
+                          _hebOverrides.clear();
+                          _engOverrides.clear();
+                          widget.onToggleEditMode(false);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: widget.isEditMode ? Colors.lightBlue : Colors.black87,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white, width: 2),
+                          boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 2))],
+                        ),
+                        child: Text(
+                          widget.isEditMode ? "SAVE" : "EDIT SUBS",
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ),
                     ),
-                    child: Text(
-                      widget.isEditMode ? "SAVE" : "EDIT SUBS",
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+                  ],
+                ); // Closes Row
+              }, // Closes showEditBtn builder
+            ), // Closes ValueListenableBuilder
+          ), // Closes Positioned
+        // 🎯 THE ADMIN EDIT TOGGLE BUTTON (WITH CANCEL)
+        // 🎯 THE ADMIN EDIT TOGGLE BUTTON (WITH CANCEL)
 
         // 5. Grandpa Gate
         if (!widget.hasSwipedFeed)
@@ -1342,6 +1384,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     );
   }
 }
+
 
 Widget _buildActionButton(IconData icon, String label, Color color, {VoidCallback? onTap}) {
   return GestureDetector(

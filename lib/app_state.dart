@@ -40,10 +40,11 @@ class AppState {
   final userPhone = ValueNotifier<String?>(null);
   final userUid = ValueNotifier<String?>(null);
   final a2hsCount = ValueNotifier<int>(0);
-  final targetVideo = ValueNotifier<String?>(null);
+  final ValueNotifier<bool> adminShowEditButton = ValueNotifier<bool>(false);
   final savedClips = ValueNotifier<List<String>>([]);
   final ValueNotifier<int> manualEditRow = ValueNotifier<int>(0);
-
+  final ValueNotifier<bool> adminShowOffline = ValueNotifier<bool>(false);
+  final ValueNotifier      <bool> adminForceShowSubs = ValueNotifier<bool>(false);
   // Global Admin State
   final isAdmin = ValueNotifier<bool>(false);
   StreamSubscription<DocumentSnapshot>? _adminSub;
@@ -54,6 +55,7 @@ class AppState {
   final lockoutSeconds = ValueNotifier<int>(0);
   Timer? _penaltyTimer;
   StreamSubscription<DocumentSnapshot>? _loginSub;
+  final ValueNotifier<String?> targetVideo = ValueNotifier<String?>(null);
 
   Future<String> executeWhatsAppLogin(String phone, String botNumber) async {
     if (phone.length < 9) throw Exception('Invalid phone number');
@@ -181,29 +183,28 @@ class AppState {
       });
     }
   }
-
   void initAdminListener() {
-    FirebaseAuth.instance.authStateChanges().listen((fbUser) {
+    // Listen directly to our verified phone number instead of the raw Firebase Auth object
+    userPhone.addListener(() {
       _adminSub?.cancel();
 
-      if (fbUser == null) {
-        debugPrint("🚨 ADMIN CHECK: No Firebase User found.");
+      final currentPhone = userPhone.value;
+      if (currentPhone == null || currentPhone.isEmpty) {
         isAdmin.value = false;
         return;
       }
 
-      debugPrint("🚨 ADMIN CHECK: Searching Firestore for UID: ${fbUser.uid}");
+      // Strip the '+' to perfectly match the 972539332613 document ID in the admins collection
+      final String safePhone = currentPhone.replaceAll('+', '').trim();
 
       _adminSub = FirebaseFirestore.instance
           .collection('admins')
-          .doc(fbUser.uid)
+          .doc(safePhone)
           .snapshots()
           .listen((snapshot) {
         if (snapshot.exists && snapshot.data() != null) {
-          debugPrint("🚨 ADMIN CHECK: Success! Document found.");
           isAdmin.value = snapshot.data()!['isAdmin'] == true;
         } else {
-          debugPrint("🚨 ADMIN CHECK: FAILED. No document exists for ${fbUser.uid}");
           isAdmin.value = false;
         }
       }, onError: (e) {
@@ -212,7 +213,6 @@ class AppState {
       });
     });
   }
-
   Future<void> bootCheck() async {
     initAdminListener();
     try {
