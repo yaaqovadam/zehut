@@ -14,6 +14,7 @@ import 'package:path_provider/path_provider.dart';
 import '../app_state.dart';
 import '../sync_studio/sync_studio_screen.dart';
 import 'feed_tab.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class AdminFeedManager extends StatefulWidget {
   const AdminFeedManager({super.key});
@@ -184,14 +185,21 @@ class _AdminFeedManagerState extends State<AdminFeedManager> {
   void _confirmDelete(DocumentSnapshot doc, List<DocumentSnapshot> currentDocs) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (BuildContext dialogContext) => AlertDialog(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         title: Text('dialog_delete_title'.tr(), style: const TextStyle(color: Color(0xFF103856), fontWeight: FontWeight.bold)),
         content: Text('dialog_delete_confirm'.tr(), style: const TextStyle(color: Colors.black87)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text('btn_cancel'.tr(), style: const TextStyle(color: Colors.grey))),
-          ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white), onPressed: () { Navigator.pop(context); _deleteVideo(doc, currentDocs); }, child: Text('btn_delete'.tr())),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text('btn_cancel'.tr(), style: const TextStyle(color: Colors.grey))),
+          ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _deleteVideo(doc, currentDocs);
+              },
+              child: Text('btn_delete'.tr())
+          ),
         ],
       ),
     );
@@ -305,11 +313,25 @@ class _AdminFeedManagerState extends State<AdminFeedManager> {
                         Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            InkWell(onTap: () => Navigator.push(context, MaterialPageRoute(
-                              builder: (context) => SyncStudioScreen( docId: docs[index].id, videoUrl: data['url']),
-                            )), child: const Icon(Icons.edit, color: Colors.lightBlue, size: 26)),
-                            const SizedBox(height: 12),
-                            Transform.translate(offset: const Offset(0, 3), child: InkWell(onTap: () => _confirmDelete(docs[index], docs), child: const Icon(Icons.delete, color: Colors.red, size: 24))),
+                            InkWell(
+                                onTap: () => Navigator.push(context, MaterialPageRoute(
+                                  builder: (context) => SyncStudioScreen( docId: docs[index].id, videoUrl: data['url']),
+                                )),
+                                child: const Padding( // 🎯 Wraps Icon in safe Hit Area padding
+                                  padding: EdgeInsets.all(10.0),
+                                  child: FaIcon(FontAwesomeIcons.fileSignature, color: Colors.lightBlue, size: 22),                                )
+                            ),
+                            const SizedBox(height: 4),
+                            Transform.translate(
+                                offset: const Offset(0, 3),
+                                child: InkWell(
+                                    onTap: () => _confirmDelete(docs[index], docs),
+                                    child: const Padding( // 🎯 Wraps Icon in safe Hit Area padding
+                                      padding: EdgeInsets.all(10.0),
+                                      child: Icon(Icons.delete, color: Colors.red, size: 24),
+                                    )
+                                )
+                            ),
                           ],
                         ),
                       ],

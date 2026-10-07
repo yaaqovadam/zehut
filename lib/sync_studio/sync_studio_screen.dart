@@ -4,6 +4,7 @@ import 'package:video_player/video_player.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class SyncStudioScreen extends StatefulWidget {
   final String docId;
@@ -378,25 +379,49 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
     });
   }
 
-  // --- SMART MONITOR LOGIC ---
+// --- SMART MONITOR LOGIC ---
+
+// --- SMART MONITOR LOGIC ---
+
+  List<int> _getRowStarts(List<Map<String, dynamic>> trackWords) {
+    List<int> starts = [];
+    int i = 0;
+    while (i < trackWords.length) {
+      starts.add(i);
+      int size = (trackWords[i]['groupSize'] as num?)?.toInt() ?? 3;
+      if (size < 1) size = 3; // Failsafe
+      i += size;
+    }
+    return starts;
+  }
 
   int _calculateFocusGroup(int currentMillis, List<Map<String, dynamic>> trackWords) {
+    if (trackWords.isEmpty) return 0;
+    List<int> starts = _getRowStarts(trackWords);
     int lastDroppedTotal = trackWords.lastIndexWhere((w) => w['startMs'] != null);
     if (lastDroppedTotal == -1) return 0;
-    int maxDroppedTime = trackWords[lastDroppedTotal]['startMs'] as int;
+
+    // 🎯 Bulletproof cast
+    int maxDroppedTime = (trackWords[lastDroppedTotal]['startMs'] as num).toInt();
 
     if (currentMillis >= maxDroppedTime) {
       int nextTarget = lastDroppedTotal + 1;
-      if (nextTarget >= trackWords.length) return lastDroppedTotal ~/ 3;
-      return nextTarget ~/ 3;
+      for (int r = 0; r < starts.length; r++) {
+        int rowEnd = (r + 1 < starts.length) ? starts[r + 1] : trackWords.length;
+        if (nextTarget >= starts[r] && nextTarget < rowEnd) return r;
+      }
+      return starts.length - 1;
     } else {
-      int reviewIndex = trackWords.lastIndexWhere((w) => w['startMs'] != null && (w['startMs'] as int) <= currentMillis);
+      // 🎯 Bulletproof cast
+      int reviewIndex = trackWords.lastIndexWhere((w) => w['startMs'] != null && ((w['startMs'] as num).toInt()) <= currentMillis);
       if (reviewIndex == -1) return 0;
-      return reviewIndex ~/ 3;
+      for (int r = 0; r < starts.length; r++) {
+        int rowEnd = (r + 1 < starts.length) ? starts[r + 1] : trackWords.length;
+        if (reviewIndex >= starts[r] && reviewIndex < rowEnd) return r;
+      }
+      return 0;
     }
   }
-
-  // --- BOILERPLATE API ---
 
 // --- BOILERPLATE API ---
 
@@ -565,10 +590,18 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
           return AnimatedBuilder(
               animation: _videoController,
               builder: (context, child) {
+                if (!_videoController.value.isInitialized) return const SizedBox.shrink();
+
                 final currentMillis = _videoController.value.position.inMilliseconds;
+                List<int> starts = _getRowStarts(trackWords);
                 int activeGroup = _calculateFocusGroup(currentMillis, trackWords);
-                int startIndex = activeGroup * 3;
-                int endIndex = (startIndex + 3 > trackWords.length) ? trackWords.length : startIndex + 3;
+
+                if (activeGroup >= starts.length) return const SizedBox.shrink();
+
+                int startIndex = starts[activeGroup];
+                int currentSize = (trackWords[startIndex]['groupSize'] as num?)?.toInt() ?? 3;
+                int endIndex = (startIndex + currentSize > trackWords.length) ? trackWords.length : startIndex + currentSize;
+
                 List<Map<String, dynamic>> activeTriplets = trackWords.sublist(startIndex, endIndex);
 
                 return Container(
@@ -579,13 +612,13 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                     children: List.generate(activeTriplets.length, (index) {
                       final wordData = activeTriplets[index];
                       final word = wordData['word'] as String;
-                      final markerTime = wordData['startMs'] as int?;
+                      final markerTime = (wordData['startMs'] as num?)?.toInt();
 
                       bool isHighlighted = false;
                       if (markerTime != null && currentMillis >= markerTime) {
                         int globalIndex = startIndex + index;
                         int nextMarkerTime = (globalIndex < trackWords.length - 1 && trackWords[globalIndex + 1]['startMs'] != null)
-                            ? trackWords[globalIndex + 1]['startMs'] as int
+                            ? (trackWords[globalIndex + 1]['startMs'] as num).toInt()
                             : _videoController.value.duration.inMilliseconds;
 
                         if (currentMillis < nextMarkerTime) isHighlighted = true;
@@ -596,18 +629,21 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 6.0),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Text(word, textAlign: TextAlign.center, style: TextStyle(
-                              fontSize: fontSize, fontWeight: FontWeight.w900,
-                              foreground: Paint()..style = PaintingStyle.stroke..strokeWidth = 4.0..color = Colors.lightBlueAccent,
-                              shadows: const [Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 2))],
-                            )),
-                            Text(word, textAlign: TextAlign.center, style: TextStyle(
-                              fontSize: fontSize, fontWeight: FontWeight.w900, color: fillColor,
-                            )),
-                          ],
+                        child: Directionality(
+                          textDirection: lang == 'hebrew' ? TextDirection.rtl : TextDirection.ltr,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Text(word, textAlign: TextAlign.center, textDirection: lang == 'hebrew' ? TextDirection.rtl : TextDirection.ltr, style: TextStyle(
+                                fontSize: fontSize, fontWeight: FontWeight.w900,
+                                foreground: Paint()..style = PaintingStyle.stroke..strokeWidth = 4.0..color = Colors.lightBlueAccent,
+                                shadows: const [Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 2))],
+                              )),
+                              Text(word, textAlign: TextAlign.center, textDirection: lang == 'hebrew' ? TextDirection.rtl : TextDirection.ltr, style: TextStyle(
+                                fontSize: fontSize, fontWeight: FontWeight.w900, color: fillColor,
+                              )),
+                            ],
+                          ),
                         ),
                       );
                     }),
@@ -856,25 +892,31 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                           if (markerTime == null) return const SizedBox.shrink();
 
                           final markerLeftOffset = centerPlayhead + ((markerTime - currentMillis) * pixelsPerMs);
+                          if (markerLeftOffset < -50 || markerLeftOffset > screenWidth + 50) return const SizedBox.shrink();
 
-                          if (markerLeftOffset < -50 || markerLeftOffset > screenWidth + 50) {
-                            return const SizedBox.shrink();
+                          // Dynamic group logic for coloring lollipops accurately
+                          List<int> rowStarts = _getRowStarts(_activeWords);
+                          int groupNumber = 0;
+                          int numberInGroup = 1;
+                          for (int r = 0; r < rowStarts.length; r++) {
+                            int rowEnd = (r + 1 < rowStarts.length) ? rowStarts[r+1] : _activeWords.length;
+                            if (index >= rowStarts[r] && index < rowEnd) {
+                              groupNumber = r;
+                              numberInGroup = index - rowStarts[r] + 1;
+                              break;
+                            }
                           }
-
-                          int groupNumber = (index ~/ 3);
                           bool isBlueGroup = (groupNumber % 2 == 0);
                           Color lollipopColor = isBlueGroup ? Colors.blue : Colors.deepOrange;
-                          int numberInGroup = (index % 3) + 1;
 
-                          // 🎯 Shifted left offset by -30 to account for the new 60px width
                           return Positioned(
                             left: markerLeftOffset - 30,
                             top: 0,
                             bottom: 0,
-                            width: 60, // 🎯 Massive hit area width
+                            width: 60,
                             child: Column(
                               children: [
-                                Container(width: 2, height: 70, color: Colors.white),
+                                Container(width: 2, height: 60, color: Colors.white),
                                 GestureDetector(
                                   behavior: HitTestBehavior.opaque,
                                   onPanUpdate: (details) {
@@ -883,37 +925,27 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                                       _silentAutoSave();
                                       return;
                                     }
-
                                     final dragMillis = (details.delta.dx / pixelsPerMs).round();
                                     int newMillis = markerTime + dragMillis;
-
                                     int minBound = (index == 0) ? 0 : (_activeWords[index - 1]['startMs'] as int? ?? 0);
                                     int maxBound = (index == _activeWords.length - 1 || _activeWords[index + 1]['startMs'] == null)
                                         ? _videoController.value.duration.inMilliseconds
                                         : (_activeWords[index + 1]['startMs'] as int);
 
-                                    setState(() {
-                                      _activeWords[index]['startMs'] = newMillis.clamp(minBound, maxBound);
-                                    });
+                                    setState(() => _activeWords[index]['startMs'] = newMillis.clamp(minBound, maxBound));
                                   },
-                                  onPanEnd: (details) {
-                                    _silentAutoSave();
-                                  },
-                                  // 🎯 Massive invisible touch target wrapping the small circle
+                                  onPanEnd: (details) => _silentAutoSave(),
                                   child: Container(
                                     width: 60,
                                     height: 60,
                                     color: Colors.transparent,
-                                    alignment: Alignment.center,
+                                    alignment: Alignment.topCenter, // 🎯 FIX: Lifts ball exactly 12px to touch the pole
                                     child: Container(
                                       width: 36,
                                       height: 36,
                                       decoration: BoxDecoration(color: lollipopColor, shape: BoxShape.circle),
                                       child: Center(
-                                        child: Text(
-                                            '$numberInGroup',
-                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)
-                                        ),
+                                        child: Text('$numberInGroup', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                                       ),
                                     ),
                                   ),
@@ -932,61 +964,96 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
               const Spacer(),
 
 
+
 // ZONE 3: CONTROLS (Slim Profile & Bottom Aligned)
               // ZONE 3: CONTROLS (Slim Profile & Bottom Aligned)
               Container(
                 color: Colors.black,
-                padding: const EdgeInsets.only(top: 5, bottom: 0),
+                // 🎯 Added horizontal padding so spaceBetween doesn't hug the screen edges
+                padding: const EdgeInsets.only(top: 5, bottom: 16, left: 8, right: 8),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween, // 🎯 Spaced evenly to the edges
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // 🔇 REPLACED REWIND WITH MUTE
                     IconButton(
                       iconSize: 32,
-                      padding: const EdgeInsets.only(bottom: 8),
-                      alignment: Alignment.bottomCenter,
                       color: _isMuted ? Colors.grey : Colors.orangeAccent,
                       icon: Icon(_isMuted ? Icons.volume_off : Icons.volume_up),
                       onPressed: _toggleMute,
                     ),
-                    IconButton(
-                      iconSize: 28,
-                      padding: const EdgeInsets.only(bottom: 8),
-                      alignment: Alignment.bottomCenter,
-                      color: Colors.redAccent,
-                      icon: const Icon(Icons.undo),
-                      onPressed: _removeLastMarker,
+
+                    // 🎯 Words Per Row Popup (Moved to Left Side)
+                    PopupMenuButton<int>(
+                      color: const Color(0xFF103856),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      onSelected: (int size) {
+                        final currentMillis = _videoController.value.position.inMilliseconds;
+                        List<int> starts = _getRowStarts(_activeWords);
+                        int activeGroup = _calculateFocusGroup(currentMillis, _activeWords);
+                        if (activeGroup < starts.length) {
+                          int startIndex = starts[activeGroup];
+                          setState(() {
+                            _activeWords[startIndex]['groupSize'] = size;
+                          });
+                          _silentAutoSave();
+                        }
+                      },
+                      itemBuilder: (BuildContext context) {
+                        return [3, 4, 5, 6].map((int size) {
+                          return PopupMenuItem<int>(
+                            value: size,
+                            child: Text("$size Words", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          );
+                        }).toList();
+                      },
+                      // 🎯 Visually represents a row broken into column chunks
+                      child: const Icon(Icons.view_week_rounded, color: Colors.blueAccent, size: 28),
                     ),
+
                     IconButton(
                       iconSize: 42,
-                      padding: const EdgeInsets.only(bottom: 8),
-                      alignment: Alignment.bottomCenter,
                       color: Colors.lightBlue,
                       icon: Icon(_videoController.value.isPlaying ? Icons.pause : Icons.play_arrow),
                       onPressed: _togglePlayStop,
                     ),
                     IconButton(
                       iconSize: 34,
-                      padding: const EdgeInsets.only(bottom: 8),
-                      alignment: Alignment.bottomCenter,
                       color: Colors.greenAccent,
                       icon: const Icon(Icons.add),
                       onPressed: _addNextMarker,
                     ),
-                    // ⏩ REPLACED FAST FORWARD WITH SPEED SELECTOR
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: TextButton(
-                        onPressed: _cycleSpeed,
-                        child: Text(
-                          "${_playbackSpeed}x",
-                          style: const TextStyle(
-                              color: Colors.orangeAccent,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold
-                          ),
-                        ),
+
+                    // 🎯 Undo Button (Moved to Right Side, Arrow Flipped)
+                    IconButton(
+                      iconSize: 28,
+                      color: Colors.redAccent,
+                      icon: const Icon(Icons.redo), // 🎯 Reverses the arrow direction
+                      onPressed: _removeLastMarker,
+                    ),
+
+                    // ⏩ SPEED POPUP MENU
+                    PopupMenuButton<double>(
+                      initialValue: _playbackSpeed,
+                      color: const Color(0xFF103856),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      onSelected: (double speed) {
+                        _videoController.setPlaybackSpeed(speed);
+                        setState(() => _playbackSpeed = speed);
+                      },
+                      itemBuilder: (BuildContext context) {
+                        return _speeds.map((double speed) {
+                          return PopupMenuItem<double>(
+                            value: speed,
+                            child: Text("${speed}x", style: TextStyle(
+                              color: _playbackSpeed == speed ? Colors.orangeAccent : Colors.white,
+                              fontWeight: FontWeight.bold,
+                            )),
+                          );
+                        }).toList();
+                      },
+                      child: Text(
+                        "${_playbackSpeed}x",
+                        style: const TextStyle(color: Colors.orangeAccent, fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],

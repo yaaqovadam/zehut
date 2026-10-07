@@ -92,7 +92,17 @@ class _FeedTabState extends State<FeedTab> {
       if (mounted) {
         setState(() {
           _hasSwipedFeed = prefs.getBool('has_swiped_feed') ?? false;
-          _lastVideoId = prefs.getString('last_watched_video_id');
+
+          // 🎯 Timebound memory check (1 hour)
+          final lastWatchedTime = prefs.getInt('last_watched_timestamp') ?? 0;
+          final currentTime = DateTime.now().millisecondsSinceEpoch;
+          final int expirationMs = 1 * 60 * 60 * 1000; // 1 hour in milliseconds
+
+          if (currentTime - lastWatchedTime < expirationMs) {
+            _lastVideoId = prefs.getString('last_watched_video_id');
+          } else {
+            _lastVideoId = null; // Memory expired! Boot to default.
+          }
         });
         _fetchFeedFromFirebase();
       }
@@ -154,14 +164,36 @@ class _FeedTabState extends State<FeedTab> {
             int foundIndex = _feedVideos.indexWhere((v) => v['id'] == widget.targetVideoId);
             if (foundIndex != -1) startingIndex = foundIndex;
           }
+          // 🎯 1. Force Flutter to read the actual URL address first
           else if (kIsWeb) {
             try {
-              final metaTag = html.document.querySelector('meta[name="video-id"]');
-              if (metaTag != null && metaTag.attributes['content'] != null) {
-                int foundIndex = _feedVideos.indexWhere((v) => v['id'] == metaTag.attributes['content']);
-                if (foundIndex != -1) startingIndex = foundIndex;
+              final currentPath = html.window.location.pathname ?? '';
+              if (currentPath.contains('.html') && !currentPath.contains('index.html')) {
+                final extractId = currentPath.split('/').last.replaceAll('.html', '');
+                int foundIndex = _feedVideos.indexWhere((v) => v['id'] == extractId);
+                if (foundIndex != -1) {
+                  startingIndex = foundIndex;
+                  _lastVideoId = extractId; // Overwrite local storage immediately
+                }
               }
             } catch (_) {}
+
+            // 🎯 2. If the URL didn't help, try the meta tag
+            if (startingIndex == 0) {
+              try {
+                final metaTag = html.document.querySelector('meta[name="video-id"]');
+                if (metaTag != null && metaTag.attributes['content'] != null) {
+                  int foundIndex = _feedVideos.indexWhere((v) => v['id'] == metaTag.attributes['content']);
+                  if (foundIndex != -1) startingIndex = foundIndex;
+                }
+              } catch (_) {}
+            }
+          }
+
+          // 🎯 3. If all else fails, load their last watched video
+          if (startingIndex == 0 && _lastVideoId != null) {
+            int foundIndex = _feedVideos.indexWhere((v) => v['id'] == _lastVideoId);
+            if (foundIndex != -1) startingIndex = foundIndex;
           }
 
           if (startingIndex == 0 && _lastVideoId != null) {
@@ -401,37 +433,57 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   Map<int, double> _hebOverrides = {};
   Map<int, double> _engOverrides = {};
 
-  void _updateSubtitlePosition(String key, dynamic val) {
-    FirebaseFirestore.instance
-        .collection('feeds')
-        .doc(widget.videoData['id'])
-        .set({key: val}, SetOptions(merge: true));
+  List<int> _getRowStarts(List<dynamic> trackWords) {
+    List<int> starts = [];
+    int i = 0;
+    while (i < trackWords.length) {
+      starts.add(i);
+      int size = (trackWords[i] is Map && trackWords[i]['groupSize'] != null)
+          ? (trackWords[i]['groupSize'] as num).toInt()
+          : 3;
+      i += size;
+    }
+    return starts;
   }
 
   int _calculateFocusGroup(int currentMillis, List<dynamic> trackWords) {
-    int lastDroppedTotal = trackWords.lastIndexWhere((w) => w['startMs'] != null);
+    if (trackWords.isEmpty) return 0;
+    List<int> starts = _getRowStarts(trackWords);
+    int lastDroppedTotal = trackWords.lastIndexWhere((w) => w is Map && w['startMs'] != null);
     if (lastDroppedTotal == -1) return 0;
     int maxDroppedTime = (trackWords[lastDroppedTotal]['startMs'] as num).toInt();
 
     if (currentMillis >= maxDroppedTime) {
       int nextTarget = lastDroppedTotal + 1;
-      if (nextTarget >= trackWords.length) return lastDroppedTotal ~/ 3;
-      return nextTarget ~/ 3;
+      for (int r = 0; r < starts.length; r++) {
+        int rowEnd = (r + 1 < starts.length) ? starts[r + 1] : trackWords.length;
+        if (nextTarget >= starts[r] && nextTarget < rowEnd) return r;
+      }
+      return starts.length - 1;
     } else {
-      int reviewIndex = trackWords.lastIndexWhere((w) => w['startMs'] != null && ((w['startMs'] as num).toInt()) <= currentMillis);
+      int reviewIndex = trackWords.lastIndexWhere((w) => w is Map && w['startMs'] != null && ((w['startMs'] as num).toInt()) <= currentMillis);
       if (reviewIndex == -1) return 0;
-      return reviewIndex ~/ 3;
+      for (int r = 0; r < starts.length; r++) {
+        int rowEnd = (r + 1 < starts.length) ? starts[r + 1] : trackWords.length;
+        if (reviewIndex >= starts[r] && reviewIndex < rowEnd) return r;
+      }
+      return 0;
     }
   }
 
   Widget _buildFeedFlashcardRow(List<dynamic> trackWords, int currentMillis, String lang, double videoHeight, double videoWidth, int activeGroup) {
     if (trackWords.isEmpty) return const SizedBox.shrink();
 
-    // 🎯 We now use the passed-in activeGroup (which listens to manualRow in edit mode)
-    int startIndex = activeGroup * 3;
-    int endIndex = (startIndex + 3 > trackWords.length) ? trackWords.length : startIndex + 3;
-    List<dynamic> activeTriplets = trackWords.sublist(startIndex, endIndex);
+    List<int> starts = _getRowStarts(trackWords);
+    if (activeGroup >= starts.length) return const SizedBox.shrink();
 
+    int startIndex = starts[activeGroup];
+    int currentSize = (trackWords[startIndex] is Map && trackWords[startIndex]['groupSize'] != null)
+        ? (trackWords[startIndex]['groupSize'] as num).toInt()
+        : 3;
+    int endIndex = (startIndex + currentSize > trackWords.length) ? trackWords.length : startIndex + currentSize;
+
+    List<dynamic> activeTriplets = trackWords.sublist(startIndex, endIndex);
     double baseSize = videoHeight * 0.035;
 
     return Row(
@@ -446,7 +498,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         bool isHighlighted = false;
         if (markerTime != null && currentMillis >= markerTime) {
           int globalIndex = startIndex + index;
-          int nextMarkerTime = (globalIndex < trackWords.length - 1 && trackWords[globalIndex + 1]['startMs'] != null)
+          int nextMarkerTime = (globalIndex < trackWords.length - 1 && trackWords[globalIndex + 1] is Map && trackWords[globalIndex + 1]['startMs'] != null)
               ? (trackWords[globalIndex + 1]['startMs'] as num).toInt()
               : _controller!.value.duration.inMilliseconds;
 
@@ -458,18 +510,21 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
         return Padding(
           padding: EdgeInsets.symmetric(horizontal: videoWidth * 0.015),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Text(word, textAlign: TextAlign.center, style: TextStyle(
-                fontSize: fontSize, fontWeight: FontWeight.w900,
-                foreground: Paint()..style = PaintingStyle.stroke..strokeWidth = videoHeight * 0.005..color = Colors.lightBlueAccent,
-                shadows: const [Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 2))],
-              )),
-              Text(word, textAlign: TextAlign.center, style: TextStyle(
-                fontSize: fontSize, fontWeight: FontWeight.w900, color: fillColor,
-              )),
-            ],
+          child: Directionality(
+            textDirection: lang == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Text(word, textAlign: TextAlign.center, textDirection: lang == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr, style: TextStyle(
+                  fontSize: fontSize, fontWeight: FontWeight.w900,
+                  foreground: Paint()..style = PaintingStyle.stroke..strokeWidth = videoHeight * 0.005..color = Colors.lightBlueAccent,
+                  shadows: const [Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 2))],
+                )),
+                Text(word, textAlign: TextAlign.center, textDirection: lang == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr, style: TextStyle(
+                  fontSize: fontSize, fontWeight: FontWeight.w900, color: fillColor,
+                )),
+              ],
+            ),
           ),
         );
       }),
@@ -492,17 +547,16 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 
   double _getSavedStickyY(int targetGroup, List<dynamic> words, double defaultY) {
-    // 1. Exact match for the current row (Local Exception)
-    int exactIdx = targetGroup * 3;
-    if (exactIdx < words.length && words[exactIdx] is Map && words[exactIdx]['y'] != null) {
-      return (words[exactIdx]['y'] as num).toDouble();
+    List<int> starts = _getRowStarts(words);
+    if (targetGroup < starts.length) {
+      int exactIdx = starts[targetGroup];
+      if (exactIdx < words.length && words[exactIdx] is Map && words[exactIdx]['y'] != null) {
+        return (words[exactIdx]['y'] as num).toDouble();
+      }
     }
-
-    // 2. Master Baseline check (Row 1 / group 0)
     if (words.isNotEmpty && words[0] is Map && words[0]['y'] != null) {
       return (words[0]['y'] as num).toDouble();
     }
-
     return defaultY;
   }
 
@@ -646,6 +700,12 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         }
       }
     });
+  }
+  void _updateSubtitlePosition(String key, dynamic val) {
+    FirebaseFirestore.instance
+        .collection('feeds')
+        .doc(widget.videoData['id'])
+        .set({key: val}, SetOptions(merge: true));
   }
 
   void _initAndPlay() {
@@ -1148,11 +1208,14 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
                           if (_hebOverrides.isNotEmpty) {
                             List<dynamic> updatedHeb = List.from(hebWords);
+                            List<int> starts = _getRowStarts(updatedHeb);
                             _hebOverrides.forEach((group, yVal) {
-                              int idx = group * 3;
-                              if (idx < updatedHeb.length) {
-                                updatedHeb[idx] = Map<String, dynamic>.from(updatedHeb[idx]);
-                                updatedHeb[idx]['y'] = yVal;
+                              if (group < starts.length) {
+                                int idx = starts[group];
+                                if (idx < updatedHeb.length) {
+                                  updatedHeb[idx] = Map<String, dynamic>.from(updatedHeb[idx]);
+                                  updatedHeb[idx]['y'] = yVal;
+                                }
                               }
                             });
                             _updateSubtitlePosition('syncedWords', updatedHeb);
@@ -1160,11 +1223,14 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
                           if (_engOverrides.isNotEmpty) {
                             List<dynamic> updatedEng = List.from(engWords);
+                            List<int> starts = _getRowStarts(updatedEng);
                             _engOverrides.forEach((group, yVal) {
-                              int idx = group * 3;
-                              if (idx < updatedEng.length) {
-                                updatedEng[idx] = Map<String, dynamic>.from(updatedEng[idx]);
-                                updatedEng[idx]['y'] = yVal;
+                              if (group < starts.length) {
+                                int idx = starts[group];
+                                if (idx < updatedEng.length) {
+                                  updatedEng[idx] = Map<String, dynamic>.from(updatedEng[idx]);
+                                  updatedEng[idx]['y'] = yVal;
+                                }
                               }
                             });
                             _updateSubtitlePosition('syncedWordsEN', updatedEng);
