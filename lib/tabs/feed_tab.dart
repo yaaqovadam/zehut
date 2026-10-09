@@ -8,12 +8,16 @@ import 'package:watch_it/watch_it.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../sync_studio/sync_studio_screen.dart';
 import 'dart:async';
 import 'dart:html' as html;
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../common/common.dart';
 import '../app_state.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
+import '../sync_studio/sync_studio_screen.dart';
 
 bool sessionAudioUnlocked = false;
 
@@ -26,7 +30,10 @@ class FeedTab extends StatefulWidget {
   State<FeedTab> createState() => _FeedTabState();
 }
 
-class _FeedTabState extends State<FeedTab> {
+class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   List<Map<String, dynamic>> _feedVideos = [];
   bool _isLoadingFeed = true;
   late PageController _pageController;
@@ -295,6 +302,8 @@ class _FeedTabState extends State<FeedTab> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // 🎯 1. REQUIRED for keep-alive to function
+
     final double screenWidth = MediaQuery.of(context).size.width;
     final double containerWidth = screenWidth > 650 ? 650 : double.infinity;
 
@@ -307,7 +316,7 @@ class _FeedTabState extends State<FeedTab> {
           child: _isLoadingFeed
               ? const Center(child: CircularProgressIndicator(color: Colors.lightBlue))
               : _feedVideos.isEmpty
-              ? const Center(child: Text("No videos found.", style: TextStyle(color: Colors.white)))
+              ? Center(child: Text('feed_no_videos'.tr(), style: const TextStyle(color: Colors.white)))
               : NotificationListener<ScrollNotification>(
             onNotification: (notification) {
               if (!_hasSwipedFeed && notification is ScrollUpdateNotification) {
@@ -329,47 +338,49 @@ class _FeedTabState extends State<FeedTab> {
               }
               return false;
             },
-            child: PageView.builder(
-              controller: _pageController,
-              physics: di<AppState>().isFeedEditMode.value
-                  ? const NeverScrollableScrollPhysics()
-                  : const PageScrollPhysics(parent: ClampingScrollPhysics()),
-              scrollDirection: Axis.vertical,
-              itemCount: _feedVideos.length * 1000,
-              itemBuilder: (context, rawIndex) {
-                int actualIndex = _getActual(rawIndex);
+            // 🎯 2. Wrap PageView so it dynamically locks scrolling in Edit Mode
+            child: ValueListenableBuilder<bool>(
+              valueListenable: di<AppState>().isFeedEditMode,
+              builder: (context, isEditMode, _) {
+                return PageView.builder(
+                  controller: _pageController,
+                  physics: isEditMode
+                      ? const NeverScrollableScrollPhysics() // 🔒 Locks swiping while editing
+                      : const PageScrollPhysics(parent: ClampingScrollPhysics()),
+                  scrollDirection: Axis.vertical,
+                  itemCount: _feedVideos.length * 1000,
+                  itemBuilder: (context, rawIndex) {
+                    int actualIndex = _getActual(rawIndex);
 
-                return ValueListenableBuilder<int>(
-                  valueListenable: _currentScrollNotifier,
-                  builder: (context, currentIndex, child) {
-                    bool isActive = rawIndex == currentIndex;
+                    return ValueListenableBuilder<int>(
+                      valueListenable: _currentScrollNotifier,
+                      builder: (context, currentIndex, child) {
+                        bool isActive = rawIndex == currentIndex;
 
-                    return ValueListenableBuilder<bool>(
-                      valueListenable: _isGlobalMuted,
-                      builder: (context, isMuted, child) {
                         return ValueListenableBuilder<bool>(
-                          valueListenable: di<AppState>().isLoggedIn,
-                          builder: (context, isLoggedIn, child) {
-
+                          valueListenable: _isGlobalMuted,
+                          builder: (context, isMuted, child) {
                             return ValueListenableBuilder<bool>(
-                                valueListenable: di<AppState>().isFeedEditMode,
-                                builder: (context, isEditMode, child) {
-                                  bool isLocked = (_feedVideos[actualIndex]['isLocked'] == true || _feedVideos[actualIndex]['isLocked'] == 'true') && !isLoggedIn;
+                              valueListenable: di<AppState>().isLoggedIn,
+                              builder: (context, isLoggedIn, child) {
+                                // Note: We already have isEditMode from the outer builder, so we don't need to listen to it again here!
+                                bool isLocked = (_feedVideos[actualIndex]['isLocked'] == true || _feedVideos[actualIndex]['isLocked'] == 'true') && !isLoggedIn;
 
-                                  return FeedVideoPlayer(
-                                    videoData: _feedVideos[actualIndex],
-                                    isLocked: isLocked,
-                                    isVisible: isActive,
-                                    isMuted: isMuted,
-                                    hasSwipedFeed: _hasSwipedFeed,
-                                    onToggleMute: (muteState) => _setGlobalMute(muteState),
-                                    onUnlockTap: _showVerificationBottomSheet,
-                                    isEditMode: isEditMode,
-                                    onToggleEditMode: (bool isEditing) {
-                                      di<AppState>().isFeedEditMode.value = isEditing;
-                                    },
-                                  );
-                                }
+                                return FeedVideoPlayer(
+                                  key: ValueKey(_feedVideos[actualIndex]['id']),
+                                  videoData: _feedVideos[actualIndex],
+                                  isLocked: isLocked,
+                                  isVisible: isActive,
+                                  isMuted: isMuted,
+                                  hasSwipedFeed: _hasSwipedFeed,
+                                  onToggleMute: (muteState) => _setGlobalMute(muteState),
+                                  onUnlockTap: _showVerificationBottomSheet,
+                                  isEditMode: isEditMode,
+                                  onToggleEditMode: (bool isEditing) {
+                                    di<AppState>().isFeedEditMode.value = isEditing;
+                                  },
+                                );
+                              },
                             );
                           },
                         );
@@ -396,6 +407,7 @@ class FeedVideoPlayer extends StatefulWidget {
   final bool hasSwipedFeed;
   final bool isEditMode;
   final ValueChanged<bool> onToggleEditMode;
+
 
   const FeedVideoPlayer({
     super.key,
@@ -424,6 +436,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   Timer? _uiHideTimer;
   bool isAdmin = false;
   bool isLoading = true;
+  int _lastJumpTime = 0; // 🎯 Tracks rapid taps
+  Timer? _jumpSpamTimer;
+  int? _targetJumpRow;
 
   bool _isShowingSwipeGate = false;
 
@@ -433,17 +448,79 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   Map<int, double> _hebOverrides = {};
   Map<int, double> _engOverrides = {};
 
-  List<int> _getRowStarts(List<dynamic> trackWords) {
+// 🎯 Helper to find exact row boundaries
+  List<int> _getRowStarts(List<dynamic> words) {
     List<int> starts = [];
     int i = 0;
-    while (i < trackWords.length) {
+    while (i < words.length) {
       starts.add(i);
-      int size = (trackWords[i] is Map && trackWords[i]['groupSize'] != null)
-          ? (trackWords[i]['groupSize'] as num).toInt()
-          : 3;
+      int size = (words[i] is Map && words[i]['groupSize'] != null) ? (words[i]['groupSize'] as num).toInt() : 3;
       i += size;
     }
     return starts;
+  }
+
+  // 🎯 Smart Skip Logic (Built for rapid spamming!)
+  // 🎯 Absolute Time-Scanner Jump Logic (Completely bypasses row calculation)
+// 🎯 Absolute Time-Scanner Jump Logic (Completely bypasses row calculation)
+  void _jump(int direction, List<dynamic> words) {
+    if (words.isEmpty || _controller == null) return;
+
+    int currentMillis = _controller!.value.position.inMilliseconds;
+    List<int> starts = _getRowStarts(words);
+
+    int? targetMs;
+    int targetRow = 0;
+
+    if (direction > 0) {
+      // ⏩ FAST FORWARD: Scan forward for the next row that starts AFTER the current time
+      for (int r = 0; r < starts.length; r++) {
+        int rowStartIdx = starts[r];
+        int? rowTime;
+
+        // Scan up to 4 words deep in this row to find a valid timestamp
+        for (int i = rowStartIdx; i < words.length && i < rowStartIdx + 4; i++) {
+          if (words[i] is Map && words[i]['startMs'] != null) {
+            rowTime = (words[i]['startMs'] as num).toInt();
+            break;
+          }
+        }
+
+        // If we found a time that is strictly in the future (+50ms buffer), lock it in!
+        if (rowTime != null && rowTime > currentMillis + 50) {
+          targetMs = rowTime;
+          targetRow = r;
+          break;
+        }
+      }
+    } else {
+      // ⏪ REWIND: Scan backward for the first row that starts BEFORE the current time
+      for (int r = starts.length - 1; r >= 0; r--) {
+        int rowStartIdx = starts[r];
+        int? rowTime;
+
+        // Scan up to 4 words deep in this row to find a valid timestamp
+        for (int i = rowStartIdx; i < words.length && i < rowStartIdx + 4; i++) {
+          if (words[i] is Map && words[i]['startMs'] != null) {
+            rowTime = (words[i]['startMs'] as num).toInt();
+            break;
+          }
+        }
+
+        // If we found a time that is strictly in the past (-50ms buffer), lock it in!
+        if (rowTime != null && rowTime < currentMillis - 50) {
+          targetMs = rowTime;
+          targetRow = r;
+          break;
+        }
+      }
+    }
+
+    // Force the jump to that exact time (+10ms to trigger the highlight)
+    if (targetMs != null) {
+      di<AppState>().manualEditRow.value = targetRow;
+      _controller!.seekTo(Duration(milliseconds: targetMs + 10));
+    }
   }
 
   int _calculateFocusGroup(int currentMillis, List<dynamic> trackWords) {
@@ -506,7 +583,21 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         }
 
         double fontSize = isHighlighted ? baseSize * 1.3 : baseSize;
+
+        // 🎯 ADVANCED DYNAMIC COLOR THEMES (Matches Sync Studio)
+// 🎯 ADVANCED DYNAMIC COLOR THEMES
+        Color strokeColor;
+
+        // 🎯 ONE SINGLE FILL COLOR FOR BOTH LANGUAGES
+        // If Colors.yellowAccent still looks too orange/warm on your screen,
+        // change this right here to Colors.limeAccent or a specific hex like const Color(0xFFCCFF00)
         Color fillColor = isHighlighted ? Colors.yellowAccent : Colors.black;
+
+        if (lang == 'hebrew') {
+          strokeColor = isHighlighted ? Colors.pinkAccent : Colors.purpleAccent.shade100;
+        } else {
+          strokeColor = Colors.lightBlueAccent;
+        }
 
         return Padding(
           padding: EdgeInsets.symmetric(horizontal: videoWidth * 0.015),
@@ -515,14 +606,35 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                Text(word, textAlign: TextAlign.center, textDirection: lang == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr, style: TextStyle(
-                  fontSize: fontSize, fontWeight: FontWeight.w900,
-                  foreground: Paint()..style = PaintingStyle.stroke..strokeWidth = videoHeight * 0.005..color = Colors.lightBlueAccent,
-                  shadows: const [Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 2))],
-                )),
-                Text(word, textAlign: TextAlign.center, textDirection: lang == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr, style: TextStyle(
-                  fontSize: fontSize, fontWeight: FontWeight.w900, color: fillColor,
-                )),
+                // 🎯 1. THE GLOW & BORDER LAYER
+                Text(word,
+                    textAlign: TextAlign.center,
+                    textDirection: lang == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.w900,
+                      foreground: Paint()
+                        ..style = PaintingStyle.stroke
+                        ..strokeWidth = videoHeight * 0.005
+                        ..color = strokeColor, // The border color
+                      shadows: [
+                        // 🎯 THE NEON GLOW: Uses the stroke color, zero offset, high blur!
+                        Shadow(color: strokeColor, blurRadius: 15, offset: Offset.zero),
+                        // 🎯 THE DROP SHADOW: Keeps it readable on bright white backgrounds
+                        const Shadow(color: Colors.black87, blurRadius: 6, offset: Offset(0, 2)),
+                      ],
+                    )
+                ),
+                // 🎯 2. THE SOLID FILL LAYER (Yellow or Black)
+                Text(word,
+                    textAlign: TextAlign.center,
+                    textDirection: lang == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.w900,
+                      color: fillColor,
+                    )
+                ),
               ],
             ),
           ),
@@ -530,7 +642,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       }),
     );
   }
-
   double _getLocalStickyY(int targetGroup, Map<int, double> overrides, double fallback) {
     // 1. If this exact row was moved, use its specific position (Local Exception)
     if (overrides.containsKey(targetGroup)) {
@@ -595,6 +706,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         isAdmin = isAdminUser;
         isLoading = false;
       });
+      di<AppState>().isAdmin.value = isAdminUser;
     }
   }
 
@@ -619,6 +731,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       }
     });
   }
+
+
 
   String _formatLikes(int likes) {
     if (likes >= 1000000) return '${(likes / 1000000).toStringAsFixed(1)}m';
@@ -661,6 +775,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 
   void _onUserInteraction() {
+    if (widget.isEditMode) return; // 🎯 Prevents screen taps from waking the UI while editing
+
     if (!_showUi) {
       setState(() => _showUi = true);
     }
@@ -1043,7 +1159,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           ),
 
         // 4. TOP LAYER: Touchable, Draggable Subtitles
-        // 4. TOP LAYER: Touchable, Draggable Subtitles
         if (_isInitialized && _controller != null)
           FittedBox(
             fit: BoxFit.cover,
@@ -1053,50 +1168,50 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
               child: AnimatedBuilder(
                 animation: _controller!,
                 builder: (context, child) {
-    return ValueListenableBuilder<int>(
-    valueListenable: di<AppState>().manualEditRow,
-    builder: (context, manualRow, _) {
-    // 🎯 NEW: We are now listening to your Settings toggle!
-    return ValueListenableBuilder<bool>(
-    valueListenable: di<AppState>().adminForceShowSubs,
-    builder: (context, forceShow, _) {
+                  return ValueListenableBuilder<bool>(
+                    valueListenable: di<AppState>().adminForceShowSubs,
+                    builder: (context, forceShow, _) {
 
-    final currentMillis = _controller!.value.position.inMilliseconds;
+                      final currentMillis = _controller!.value.position.inMilliseconds;
 
-    // 1. Safely check if the public Sync Studio toggle is ON
-    final bool isGlobalHebOn = widget.videoData['showHebrew'] == true || widget.videoData['showHebrew'] == 'true';
-    final bool isGlobalEngOn = widget.videoData['showEnglish'] == true || widget.videoData['showEnglish'] == 'true';
+                      // 1. Safely check if the public Sync Studio toggle is ON
+                      final bool isGlobalHebOn = widget.videoData['showHebrew'] == true || widget.videoData['showHebrew'] == 'true';
+                      final bool isGlobalEngOn = widget.videoData['showEnglish'] == true || widget.videoData['showEnglish'] == 'true';
 
-    // 2. ONLY force them on if: Public is ON, OR your Settings Toggle is ON, OR you clicked "EDIT SUBS"
-    final bool showHeb = isGlobalHebOn || (isAdmin && forceShow) || (isAdmin && widget.isEditMode);
-    final bool showEng = isGlobalEngOn || (isAdmin && forceShow) || (isAdmin && widget.isEditMode);
+                      // 2. STRICT VISIBILITY: Only show the language if it is explicitly turned ON in Sync Studio.
+                      // (We removed the force-show in Edit Mode so the extra row stops ruining your vertical positioning!)
+                      final bool showHeb = isGlobalHebOn;
+                      final bool showEng = isGlobalEngOn;
 
-    final List<dynamic> hebWords = widget.videoData['syncedWords'] ?? [];
-    final List<dynamic> engWords = widget.videoData['syncedWordsEN'] ?? [];
+                      final List<dynamic> hebWords = widget.videoData['syncedWords'] ?? [];
+                      final List<dynamic> engWords = widget.videoData['syncedWordsEN'] ?? [];
 
-    final int hebGroup = (isAdmin && widget.isEditMode) ? manualRow : _calculateFocusGroup(currentMillis, hebWords);
-    final int engGroup = (isAdmin && widget.isEditMode) ? manualRow : _calculateFocusGroup(currentMillis, engWords);
+                      // 🎯 Let the subtitles sync to the actual video time even in edit mode!
+                      final int hebGroup = _calculateFocusGroup(currentMillis, hebWords);
+                      final int engGroup = _calculateFocusGroup(currentMillis, engWords);
 
-    final double defaultHeb = widget.videoData['hebrewYPos']?.toDouble() ?? 0.1;
-    final double defaultEng = widget.videoData['englishYPos']?.toDouble() ?? 0.65;
+                      final double defaultHeb = widget.videoData['hebrewYPos']?.toDouble() ?? 0.1;
+                      final double defaultEng = widget.videoData['englishYPos']?.toDouble() ?? 0.65;
 
-    final double savedHebY = _getSavedStickyY(hebGroup, hebWords, defaultHeb);
-    final double savedEngY = _getSavedStickyY(engGroup, engWords, defaultEng);
+                      final double savedHebY = _getSavedStickyY(hebGroup, hebWords, defaultHeb);
+                      final double savedEngY = _getSavedStickyY(engGroup, engWords, defaultEng);
 
-    final double hebY = _getLocalStickyY(hebGroup, _hebOverrides, savedHebY);
-    final double engY = _getLocalStickyY(engGroup, _engOverrides, savedEngY);
+                      final double hebY = _getLocalStickyY(hebGroup, _hebOverrides, savedHebY);
+                      final double engY = _getLocalStickyY(engGroup, _engOverrides, savedEngY);
 
-    return Stack(
+                      return Stack(
                         clipBehavior: Clip.none,
                         children: [
                           if (showHeb)
-                            Positioned(
+                            AnimatedPositioned(
+                              duration: widget.isEditMode ? Duration.zero : const Duration(milliseconds: 300),
+                              curve: Curves.easeOutCubic,
                               top: videoHeight * hebY,
                               left: 0, right: 0,
                               child: (isAdmin && widget.isEditMode)
                                   ? GestureDetector(
                                 behavior: HitTestBehavior.opaque,
-                                onVerticalDragUpdate: (details) { // 🎯 Switched to vertical drag
+                                onVerticalDragUpdate: (details) {
                                   double newY = hebY + (details.delta.dy / videoHeight);
                                   setState(() => _hebOverrides[hebGroup] = newY.clamp(0.0, 1.0));
                                 },
@@ -1105,20 +1220,22 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                                     color: Colors.black54,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  padding: const EdgeInsets.symmetric(vertical: 30.0), // 🎯 Massive hitbox
+                                  padding: const EdgeInsets.symmetric(vertical: 30.0),
                                   child: _buildFeedFlashcardRow(hebWords, currentMillis, 'hebrew', videoHeight, videoWidth, hebGroup),
                                 ),
                               )
                                   : _buildFeedFlashcardRow(hebWords, currentMillis, 'hebrew', videoHeight, videoWidth, hebGroup),
                             ),
                           if (showEng)
-                            Positioned(
+                            AnimatedPositioned(
+                              duration: widget.isEditMode ? Duration.zero : const Duration(milliseconds: 300),
+                              curve: Curves.easeOutCubic,
                               top: videoHeight * engY,
                               left: 0, right: 0,
                               child: (isAdmin && widget.isEditMode)
                                   ? GestureDetector(
                                 behavior: HitTestBehavior.opaque,
-                                onVerticalDragUpdate: (details) { // 🎯 Switched to vertical drag
+                                onVerticalDragUpdate: (details) {
                                   double newY = engY + (details.delta.dy / videoHeight);
                                   setState(() => _engOverrides[engGroup] = newY.clamp(0.0, 1.0));
                                 },
@@ -1127,178 +1244,20 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                                     color: Colors.black54,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  padding: const EdgeInsets.symmetric(vertical: 30.0), // 🎯 Massive hitbox
+                                  padding: const EdgeInsets.symmetric(vertical: 30.0),
                                   child: _buildFeedFlashcardRow(engWords, currentMillis, 'english', videoHeight, videoWidth, engGroup),
                                 ),
                               )
                                   : _buildFeedFlashcardRow(engWords, currentMillis, 'english', videoHeight, videoWidth, engGroup),
                             ),
-
                         ],
-    ); // 1. Closes the Stack
-    }, // 2. Closes the forceShow builder
-    ); // 3. Closes the forceShow ValueListenableBuilder
-    }, // 4. Closes the manualRow builder
-    ); // 5. Closes the manualRow ValueListenableBuilder
-                }, // 6. Closes the AnimatedBuilder builder
-              ), // 7. Closes the AnimatedBuilder
-            ), // 8. Closes the SizedBox
-          ), // 9. Closes the FittedBox
-// 🎯 THE ADMIN EDIT TOGGLE BUTTON (WITH CANCEL)
-        if (di<AppState>().isAdmin.value)
-          Positioned(
-            top: 15,
-            left: 0,
-            right: 0,
-            child: ValueListenableBuilder<bool>(
-              valueListenable: di<AppState>().adminShowEditButton,
-              builder: (context, showEditBtn, _) {
-                // 🎯 Hide if disabled, UNLESS we are currently editing and need the Save/Cancel buttons
-                if (!showEditBtn && !widget.isEditMode) return const SizedBox.shrink();
-
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (widget.isEditMode)
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () {
-                          setState(() {
-                            _hebOverrides.clear();
-                            _engOverrides.clear();
-                          });
-                          widget.onToggleEditMode(false);
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 12),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade900,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.redAccent, width: 2),
-                          ),
-                          child: const Text("CANCEL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                        ),
-                      ),
-
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () {
-                        if (!widget.isEditMode) {
-                          _controller?.pause();
-                          setState(() { _showUi = true; _isPlaying = false; });
-
-                          final List<dynamic> hebW = widget.videoData['syncedWords'] ?? [];
-                          final List<dynamic> engW = widget.videoData['syncedWordsEN'] ?? [];
-                          final List<dynamic> targetW = hebW.isNotEmpty ? hebW : engW;
-
-                          di<AppState>().manualEditRow.value = _calculateFocusGroup(_controller?.value.position.inMilliseconds ?? 0, targetW);
-
-                          di<AppState>().editVideoController.value = _controller;
-                          di<AppState>().editWaveformUrl.value = widget.videoData['waveformUrl'] ?? '';
-                          di<AppState>().editTrackWords.value = targetW;
-
-                          widget.onToggleEditMode(true);
-                        } else {
-                          _controller?.pause();
-                          setState(() { _isPlaying = false; });
-
-                          final List<dynamic> hebWords = widget.videoData['syncedWords'] ?? [];
-                          final List<dynamic> engWords = widget.videoData['syncedWordsEN'] ?? [];
-
-                          if (_hebOverrides.isNotEmpty) {
-                            List<dynamic> updatedHeb = List.from(hebWords);
-                            List<int> starts = _getRowStarts(updatedHeb);
-                            _hebOverrides.forEach((group, yVal) {
-                              if (group < starts.length) {
-                                int idx = starts[group];
-                                if (idx < updatedHeb.length) {
-                                  updatedHeb[idx] = Map<String, dynamic>.from(updatedHeb[idx]);
-                                  updatedHeb[idx]['y'] = yVal;
-                                }
-                              }
-                            });
-                            _updateSubtitlePosition('syncedWords', updatedHeb);
-                          }
-
-                          if (_engOverrides.isNotEmpty) {
-                            List<dynamic> updatedEng = List.from(engWords);
-                            List<int> starts = _getRowStarts(updatedEng);
-                            _engOverrides.forEach((group, yVal) {
-                              if (group < starts.length) {
-                                int idx = starts[group];
-                                if (idx < updatedEng.length) {
-                                  updatedEng[idx] = Map<String, dynamic>.from(updatedEng[idx]);
-                                  updatedEng[idx]['y'] = yVal;
-                                }
-                              }
-                            });
-                            _updateSubtitlePosition('syncedWordsEN', updatedEng);
-                          }
-
-                          _hebOverrides.clear();
-                          _engOverrides.clear();
-                          widget.onToggleEditMode(false);
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: widget.isEditMode ? Colors.lightBlue : Colors.black87,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white, width: 2),
-                          boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 2))],
-                        ),
-                        child: Text(
-                          widget.isEditMode ? "SAVE" : "EDIT SUBS",
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ); // Closes Row
-              }, // Closes showEditBtn builder
-            ), // Closes ValueListenableBuilder
-          ), // Closes Positioned
-        // 🎯 THE ADMIN EDIT TOGGLE BUTTON (WITH CANCEL)
-        // 🎯 THE ADMIN EDIT TOGGLE BUTTON (WITH CANCEL)
-
-        // 5. Grandpa Gate
-        if (!widget.hasSwipedFeed)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: AnimatedOpacity(
-                opacity: _isShowingSwipeGate ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 800),
-                child: Container(
-                  color: Colors.black.withOpacity(0.85),
-                  alignment: Alignment.center,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0.0, end: 1.0),
-                        duration: const Duration(milliseconds: 1200),
-                        curve: Curves.elasticOut,
-                        builder: (context, val, child) {
-                          return Padding(
-                            padding: EdgeInsets.only(bottom: val * 40),
-                            child: const Icon(Icons.touch_app, color: Colors.amber, size: 90),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 15),
-                      Text(
-                        "tutorial_swipe_up".tr(),
-                        style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
           ),
-
         // 6. Lock Overlays
         if (widget.isLocked)
           Positioned.fill(
@@ -1335,15 +1294,17 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           left: 0,
           right: 0,
           height: 120,
-          child: AnimatedOpacity(
-            opacity: _showUi ? 1.0 : 0.3,
-            duration: const Duration(milliseconds: 250),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
+          child: IgnorePointer(
+            child: AnimatedOpacity(
+              opacity: _showUi ? 1.0 : 0.3,
+              duration: const Duration(milliseconds: 250),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
+                  ),
                 ),
               ),
             ),
@@ -1351,106 +1312,438 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         ),
 
         // 8. Bottom UI Layer
-        Positioned(
-          bottom: kIsWeb && html.window.matchMedia('(display-mode: standalone)').matches ? 15.0 : 5.0,
-          left: 0,
-          right: 0,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _onUserInteraction,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-              child: AnimatedOpacity(
-                opacity: _showUi ? 1.0 : 0.3,
-                duration: const Duration(milliseconds: 250),
-                child: Directionality(
-                  textDirection: ui.TextDirection.ltr,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      ValueListenableBuilder<List<String>>(
-                        valueListenable: di<AppState>().savedClips,
-                        builder: (context, savedClipsList, child) {
-                          final bool isLiked = savedClipsList.contains(videoId);
-                          return ValueListenableBuilder<bool>(
-                            valueListenable: di<AppState>().isLoggedIn,
-                            builder: (context, isLoggedIn, child) {
-                              return _buildActionButton(
-                                isLiked ? Icons.favorite : Icons.favorite_border,
-                                _formatLikes(likeCount),
-                                isLiked ? Colors.red : Colors.white,
-                                onTap: () {
-                                  _onUserInteraction();
-                                  final user = FirebaseAuth.instance.currentUser;
-                                  if (user == null) {
-                                    widget.onUnlockTap();
-                                    return;
-                                  }
-                                  final currentClips = List<String>.from(savedClipsList);
-                                  setState(() {
-                                    if (isLiked) {
-                                      currentClips.remove(videoId);
-                                      likeCount = (likeCount > 0) ? likeCount - 1 : 0;
-                                    } else {
-                                      currentClips.add(videoId);
-                                      likeCount += 1;
+        if (!widget.isEditMode)
+          Positioned(
+            bottom: kIsWeb && html.window.matchMedia('(display-mode: standalone)').matches ? 5.0 : -5.0,
+            left: 0,
+            right: 0,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _onUserInteraction,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                child: AnimatedOpacity(
+                  opacity: _showUi ? 1.0 : 0.3,
+                  duration: const Duration(milliseconds: 250),
+                  child: Directionality(
+                    textDirection: ui.TextDirection.ltr,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        ValueListenableBuilder<List<String>>(
+                          valueListenable: di<AppState>().savedClips,
+                          builder: (context, savedClipsList, child) {
+                            final bool isLiked = savedClipsList.contains(videoId);
+                            return ValueListenableBuilder<bool>(
+                              valueListenable: di<AppState>().isLoggedIn,
+                              builder: (context, isLoggedIn, child) {
+                                return _buildActionButton(
+                                  isLiked ? Icons.favorite : Icons.favorite_border,
+                                  _formatLikes(likeCount),
+                                  isLiked ? Colors.red : Colors.white,
+                                  onTap: () {
+                                    _onUserInteraction();
+                                    final user = FirebaseAuth.instance.currentUser;
+                                    if (user == null) {
+                                      widget.onUnlockTap();
+                                      return;
                                     }
-                                  });
-                                  di<AppState>().savedClips.value = currentClips;
-                                  _syncLikeToFirebase(!isLiked, videoId);
-                                },
-                              );
-                            },
-                          );
-                        },
-                      ),
-                      _buildActionButton(
-                        _isPlaying ? Icons.pause : Icons.play_arrow,
-                        _isPlaying ? "pause_btn".tr() : "play_btn".tr(),
-                        Colors.white,
-                        onTap: _togglePlayPause,
-                      ),
-                      _buildActionButton(
-                        widget.isMuted ? Icons.volume_off : Icons.volume_up,
-                        "sound_btn".tr(),
-                        Colors.white,
-                        onTap: () {
-                          _onUserInteraction();
-                          if (widget.isLocked) {
-                            widget.onUnlockTap();
-                          } else {
-                            widget.onToggleMute(!widget.isMuted);
-                          }
-                        },
-                      ),
-                      _buildActionButton(
-                        Icons.share,
-                        'feed_share_btn'.tr(),
-                        Colors.white,
-                        onTap: () async {
-                          _onUserInteraction();
-                          final String title = widget.videoData['title']?.toString() ?? '';
-                          final String shareTitle = title.isNotEmpty ? title : "app_name".tr();
-                          String rawUrl = widget.videoData['url']?.toString() ?? "";
-                          String htmlFileName = rawUrl.split('/').last.replaceAll('.mp4', '.html');
-                          String exactLink = "https://gamfeiglintzadak.co.il/$htmlFileName";
-                          final String contentToShare = "$shareTitle\n\n$exactLink";
-                          await Share.share(contentToShare);
-                        },
-                      ),
-                    ],
+                                    final currentClips = List<String>.from(savedClipsList);
+                                    setState(() {
+                                      if (isLiked) {
+                                        currentClips.remove(videoId);
+                                        likeCount = (likeCount > 0) ? likeCount - 1 : 0;
+                                      } else {
+                                        currentClips.add(videoId);
+                                        likeCount += 1;
+                                      }
+                                    });
+                                    di<AppState>().savedClips.value = currentClips;
+                                    _syncLikeToFirebase(!isLiked, videoId);
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ),
+                        _buildActionButton(
+                          _isPlaying ? Icons.pause : Icons.play_arrow,
+                          _isPlaying ? "pause_btn".tr() : "play_btn".tr(),
+                          Colors.white,
+                          onTap: _togglePlayPause,
+                        ),
+                        _buildActionButton(
+                          widget.isMuted ? Icons.volume_off : Icons.volume_up,
+                          "sound_btn".tr(),
+                          Colors.white,
+                          onTap: () {
+                            _onUserInteraction();
+                            if (widget.isLocked) {
+                              widget.onUnlockTap();
+                            } else {
+                              widget.onToggleMute(!widget.isMuted);
+                            }
+                          },
+                        ),
+                        _buildActionButton(
+                          Icons.share,
+                          'feed_share_btn'.tr(),
+                          Colors.white,
+                          onTap: () async {
+                            _onUserInteraction();
+                            final String title = widget.videoData['title']?.toString() ?? '';
+                            final String shareTitle = title.isNotEmpty ? title : "app_name".tr();
+                            String rawUrl = widget.videoData['url']?.toString() ?? "";
+                            String htmlFileName = rawUrl.split('/').last.replaceAll('.mp4', '.html');
+                            String exactLink = "https://gamfeiglintzadak.co.il/$htmlFileName";
+                            final String contentToShare = "$shareTitle\n\n$exactLink";
+                            await Share.share(contentToShare);
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
+// 🎯 TOP-LEFT (TL) PORTAL TO SYNC STUDIO
+        if (isAdmin && widget.isEditMode)
+          PositionedDirectional(
+            top: 5,
+            start: 15, // 🎯 Top Left, directly opposite of CANCEL
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                _controller?.pause();
+                setState(() => _isPlaying = false);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SyncStudioScreen(
+                      docId: widget.videoData['id']?.toString() ?? '',
+                      videoUrl: widget.videoData['url']?.toString() ?? '',
+                    ),
+                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.orangeAccent.withOpacity(0.15),
+                  border: Border.all(color: Colors.orangeAccent, width: 2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: const [
+                    FaIcon(FontAwesomeIcons.fileSignature, color: Colors.orangeAccent, size: 16),
+                    SizedBox(width: 8),
+                    Text('TEXT EDITOR', style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.w900)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        // 🎯 THE ONE AND ONLY EDIT/CANCEL BUTTON
+
+        // 🎯 TOP-LEFT (TL) PORTAL TO SYNC STUDIO
+        if (isAdmin && widget.isEditMode)
+          PositionedDirectional(
+            top: 5,
+            start: 15, // 🎯 Top Left, directly opposite of CANCEL
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                _controller?.pause();
+                setState(() => _isPlaying = false);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SyncStudioScreen(
+                      docId: widget.videoData['id']?.toString() ?? '',
+                      videoUrl: widget.videoData['url']?.toString() ?? '',
+                    ),
+                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.orangeAccent.withOpacity(0.15),
+                  border: Border.all(color: Colors.orangeAccent, width: 2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: const [
+                    FaIcon(FontAwesomeIcons.fileSignature, color: Colors.orangeAccent, size: 16),
+                    SizedBox(width: 8),
+                    Text('TEXT EDITOR', style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.w900)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+        if (isAdmin)
+          PositionedDirectional(
+            top: -10,
+            end: -15,
+            child: ValueListenableBuilder<bool>(
+              valueListenable: di<AppState>().adminShowEditButton,
+              builder: (context, showEditBtn, _) {
+                if (!showEditBtn) return const SizedBox.shrink();
+
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    if (!widget.isEditMode) {
+                      _controller?.pause();
+                      setState(() { _showUi = false; _isPlaying = false; });
+                      final List<dynamic> hebW = widget.videoData['syncedWords'] ?? [];
+                      final List<dynamic> engW = widget.videoData['syncedWordsEN'] ?? [];
+                      // 🎯 Always map the jump controls to whichever track has the most words!
+                      final List<dynamic> targetW = (hebW.length > engW.length) ? hebW : engW;
+
+                      di<AppState>().manualEditRow.value = _calculateFocusGroup(_controller?.value.position.inMilliseconds ?? 0, targetW);
+                      di<AppState>().editVideoController.value = _controller;
+                      di<AppState>().editWaveformUrl.value = widget.videoData['waveformUrl'] ?? '';
+                      di<AppState>().editTrackWords.value = targetW;
+                      widget.onToggleEditMode(true);
+                    } else {
+                      // Cancel
+                      setState(() { _hebOverrides.clear(); _engOverrides.clear(); _showUi = true; });
+                      widget.onToggleEditMode(false);
+                      _startUiHideTimer();
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(15.0),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Text(
+                          widget.isEditMode ? 'btn_cancel'.tr() : 'btn_edit_subs'.tr(),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            foreground: Paint()
+                              ..style = PaintingStyle.stroke
+                              ..strokeWidth = 2.5
+                              ..color = widget.isEditMode ? Colors.grey.shade400 : Colors.lightBlueAccent,
+                          ),
+                        ),
+                        Text(
+                          widget.isEditMode ? 'btn_cancel'.tr() : 'btn_edit_subs'.tr(),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+
+        // 🎯 10. THE UNIFIED BOTTOM TIMELINE EDITOR
+        if (isAdmin && widget.isEditMode)
+          Positioned(
+            bottom: 0, left: 0, right: 0,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                padding: EdgeInsets.only(
+                  top: 10, bottom: kIsWeb && html.window.matchMedia('(display-mode: standalone)').matches ? 20.0 : 10.0,
+                  left: 10, right: 10,
+                ),
+                decoration: const BoxDecoration(
+                  color: Colors.black,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // ⏪ SMART PREV
+                    IconButton(
+                      icon: const FaIcon(FontAwesomeIcons.backwardStep, color: Colors.white, size: 26),
+                      onPressed: () => _jump(-1, di<AppState>().editTrackWords.value),
+                    ),
+
+
+
+
+// 🎯 THE SMART RESET BUTTON (Hebrew 20% Top / English 20% Bottom)
+                    IconButton(
+                      icon: const FaIcon(FontAwesomeIcons.arrowRotateRight, color: Colors.deepPurpleAccent, size: 26),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (dialogCtx) => AlertDialog(
+                            backgroundColor: const Color(0xFF103856),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            title: const Text(
+                              'Reset Subtitle Heights',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const Text(
+                                  'Hebrew snaps to 15% top.\nEnglish snaps to 30% bottom.',
+                                  style: TextStyle(color: Colors.white70, height: 1.4),
+                                ),
+                                const SizedBox(height: 20),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.lightBlue,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pop(dialogCtx);
+                                    final currentMillis = _controller?.value.position.inMilliseconds ?? 0;
+                                    final hebW = widget.videoData['syncedWords'] ?? [];
+                                    final engW = widget.videoData['syncedWordsEN'] ?? [];
+
+                                    setState(() {
+                                      _hebOverrides[_calculateFocusGroup(currentMillis, hebW)] = 0.30;
+                                      _engOverrides[_calculateFocusGroup(currentMillis, engW)] = 0.60;
+                                    });
+                                  },
+                                  child: const Text('RESET CURRENT ROW', style: TextStyle(fontWeight: FontWeight.bold)),
+                                ),
+                                const SizedBox(height: 12),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.redAccent,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pop(dialogCtx);
+                                    final hebW = widget.videoData['syncedWords'] ?? [];
+                                    final engW = widget.videoData['syncedWordsEN'] ?? [];
+
+                                    setState(() {
+                                      for (int i = 0; i < _getRowStarts(hebW).length; i++) {
+                                        _hebOverrides[i] = 0.20;
+                                      }
+                                      for (int i = 0; i < _getRowStarts(engW).length; i++) {
+                                        _engOverrides[i] = 0.80;
+                                      }
+                                    });
+                                  },
+                                  child: const Text('RESET ENTIRE VIDEO', style: TextStyle(fontWeight: FontWeight.bold)),
+                                ),
+                                const SizedBox(height: 8),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(dialogCtx),
+                                  child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+
+                    // ⏯️ BULLETPROOF PLAY/PAUSE (FontAwesome)
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        if (_controller != null) {
+                          if (_controller!.value.isPlaying) {
+                            _controller!.pause();
+                            setState(() => _isPlaying = false);
+                          } else {
+                            _controller!.setVolume(1.0); // 🎯 Sound forced ON!
+                            _controller!.play();
+                            setState(() => _isPlaying = true);
+                          }
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          // color: Colors.lightBlue.withOpacity(0.15),
+                          // shape: BoxShape.circle,
+                          // border: Border.all(color: Colors.lightBlue, width: 2),
+                          // boxShadow: const [BoxShadow(color: Colors.lightBlue, blurRadius: 10)],
+                        ),
+                        child: FaIcon(
+                          (_controller != null && _controller!.value.isPlaying) ? FontAwesomeIcons.pause : FontAwesomeIcons.play,
+                          color: Colors.white,
+                          size: 26,
+                        ),
+                      ),
+                    ),
+
+                    // 💾 SAVE
+                    IconButton(
+                      icon: const FaIcon(FontAwesomeIcons.floppyDisk, color: Colors.lightBlue, size: 28),
+                      onPressed: () {
+                        _controller?.pause();
+                        setState(() { _showUi = true; _isPlaying = false; });
+                        final List<dynamic> hebWords = widget.videoData['syncedWords'] ?? [];
+                        final List<dynamic> engWords = widget.videoData['syncedWordsEN'] ?? [];
+
+                        if (_hebOverrides.isNotEmpty) {
+                          List<dynamic> updatedHeb = List.from(hebWords);
+                          List<int> starts = _getRowStarts(updatedHeb);
+                          _hebOverrides.forEach((group, yVal) {
+                            if (group < starts.length) {
+                              int idx = starts[group];
+                              if (idx < updatedHeb.length) {
+                                updatedHeb[idx] = Map<String, dynamic>.from(updatedHeb[idx]);
+                                updatedHeb[idx]['y'] = yVal;
+                              }
+                            }
+                          });
+                          _updateSubtitlePosition('syncedWords', updatedHeb);
+                        }
+
+                        if (_engOverrides.isNotEmpty) {
+                          List<dynamic> updatedEng = List.from(engWords);
+                          List<int> starts = _getRowStarts(updatedEng);
+                          _engOverrides.forEach((group, yVal) {
+                            if (group < starts.length) {
+                              int idx = starts[group];
+                              if (idx < updatedEng.length) {
+                                updatedEng[idx] = Map<String, dynamic>.from(updatedEng[idx]);
+                                updatedEng[idx]['y'] = yVal;
+                              }
+                            }
+                          });
+                          _updateSubtitlePosition('syncedWordsEN', updatedEng);
+                        }
+
+                        _hebOverrides.clear();
+                        _engOverrides.clear();
+                        widget.onToggleEditMode(false);
+                        _startUiHideTimer();
+                      },
+                    ),
+
+                    // ⏩ SMART NEXT
+                    IconButton(
+                      icon: const FaIcon(FontAwesomeIcons.forwardStep, color: Colors.white, size: 26),
+                      onPressed: () => _jump(1, di<AppState>().editTrackWords.value),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
 }
-
 
 Widget _buildActionButton(IconData icon, String label, Color color, {VoidCallback? onTap}) {
   return GestureDetector(

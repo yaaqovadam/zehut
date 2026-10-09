@@ -5,6 +5,9 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:easy_localization/easy_localization.dart';
+import '../sync_studio/sync_studio_screen.dart';
+import 'dart:ui' as ui;
 
 class SyncStudioScreen extends StatefulWidget {
   final String docId;
@@ -87,11 +90,11 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("Subtitle Settings", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                      Text('sync_settings_title'.tr(), style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 24),
 
                       // ACTIVE SYNC TRACK SELECTOR
-                      const Text("Active Syncing Track", style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+                      Text('sync_active_track'.tr(), style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       Row(
                         children: [
@@ -111,7 +114,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                                   if (!_isHebrewLocked) _scriptController.text = _hebrewRawText;
                                 });
                               },
-                              child: const Text("HEBREW", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              child: Text('sync_hebrew_btn'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -131,17 +134,91 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                                   if (!_isEnglishLocked) _scriptController.text = _englishRawText;
                                 });
                               },
-                              child: const Text("ENGLISH", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              child: Text('sync_english_btn'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 20),
+// 🎯 THE SMART RESET BUTTON (Fully Localized)
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: () {
+                            // 1. Grab the translated name of the active track (e.g. "עברית" or "English")
+                            String localizedLangName = _activeLanguage == 'hebrew' ? 'sync_hebrew_btn'.tr() : 'sync_english_btn'.tr();
+
+                            // 🛑 PREVENT ACCIDENTAL TAPS: The Confirmation Dialog
+                            showDialog(
+                                context: context,
+                                builder: (BuildContext dialogContext) {
+                                  return AlertDialog(
+                                    backgroundColor: const Color(0xFF103856),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                    title: Text('sync_reset_warning_title'.tr(), style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                                    content: Text(
+                                      'sync_reset_warning_desc'.tr(args: [localizedLangName]), // 🎯 Injects the language dynamically
+                                      style: const TextStyle(color: Colors.redAccent, fontSize: 16, fontWeight: FontWeight.w600, height: 1.4),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(dialogContext),
+                                        child: Text('sync_reset_cancel'.tr(), style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+                                      ),
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.redAccent,
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            if (_activeLanguage == 'hebrew') {
+                                              for (var w in _hebrewWords) { w['startMs'] = null; }
+                                            } else {
+                                              for (var w in _englishWords) { w['startMs'] = null; }
+                                            }
+                                          });
+                                          _silentAutoSave();
+                                          Navigator.pop(dialogContext);
+                                          Navigator.pop(context);
+                                        },
+                                        child: Text('sync_reset_confirm'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                      ),
+                                    ],
+                                  );
+                                }
+                            );
+                          },
+                          style: TextButton.styleFrom(
+                            backgroundColor: (_activeLanguage == 'hebrew' ? Colors.blueAccent : Colors.orangeAccent).withOpacity(0.1),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              side: BorderSide(
+                                  color: _activeLanguage == 'hebrew' ? Colors.blueAccent : Colors.orangeAccent,
+                                  width: 1.5
+                              ),
+                            ),
+                          ),
+                          icon: Icon(
+                              Icons.warning_amber_rounded,
+                              color: _activeLanguage == 'hebrew' ? Colors.blueAccent : Colors.orangeAccent
+                          ),
+                          label: Text(
+                            // 🎯 Translates the button text and injects the language name
+                              'sync_reset_btn'.tr(args: [_activeLanguage == 'hebrew' ? 'sync_hebrew_btn'.tr() : 'sync_english_btn'.tr()]),
+                              style: TextStyle(
+                                  color: _activeLanguage == 'hebrew' ? Colors.blueAccent : Colors.orangeAccent,
+                                  fontWeight: FontWeight.bold
+                              )
+                          ),
+                        ),
+                      ),                     const SizedBox(height: 20),
                       const Divider(color: Colors.white24),
 
                       // Visibility Toggles
                       SwitchListTile(
-                        title: const Text("Show Hebrew", style: TextStyle(color: Colors.white)),
+                        title: Text('sync_show_hebrew'.tr(), style: const TextStyle(color: Colors.white)),
                         value: _showHebrew,
                         activeColor: Colors.lightBlueAccent,
                         onChanged: (val) {
@@ -151,7 +228,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                         },
                       ),
                       SwitchListTile(
-                        title: const Text("Show English", style: TextStyle(color: Colors.white)),
+                        title: Text('sync_show_english'.tr(), style: const TextStyle(color: Colors.white)),
                         value: _showEnglish,
                         activeColor: Colors.orangeAccent,
                         onChanged: (val) {
@@ -163,7 +240,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                       const Divider(color: Colors.white24),
 
                       // Hebrew Font Size Slider & Live Preview
-                      const Text("Hebrew Font Size", style: TextStyle(color: Colors.white70)),
+                      Text('sync_heb_font_size'.tr(), style: const TextStyle(color: Colors.white70)),
                       ValueListenableBuilder<double>(
                           valueListenable: _hebrewBaseSize,
                           builder: (context, size, child) {
@@ -183,10 +260,10 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                                   children: [
                                     Text("זהות", style: TextStyle(
                                       fontSize: size, fontWeight: FontWeight.w900,
-                                      foreground: Paint()..style = PaintingStyle.stroke..strokeWidth = 3.0..color = Colors.lightBlueAccent,
+                                      foreground: Paint()..style = PaintingStyle.stroke..strokeWidth = 4.0..color = Colors.purpleAccent.shade100, // 🎯 Lavender border
                                     )),
                                     Text("זהות", style: TextStyle(
-                                      fontSize: size, fontWeight: FontWeight.w900, color: Colors.black,
+                                      fontSize: size, fontWeight: FontWeight.w900, color: Colors.black, // 🎯 Black font
                                     )),
                                   ],
                                 ),
@@ -198,7 +275,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                       const SizedBox(height: 10),
 
                       // English Font Size Slider & Live Preview
-                      const Text("English Font Size", style: TextStyle(color: Colors.white70)),
+                      Text('sync_eng_font_size'.tr(), style: const TextStyle(color: Colors.white70)),
                       ValueListenableBuilder<double>(
                           valueListenable: _englishBaseSize,
                           builder: (context, size, child) {
@@ -237,6 +314,10 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
         }
     );
   }
+
+
+
+
   Future<void> _updateSetting(String key, dynamic value) async {
     try {
       await FirebaseFirestore.instance.collection('feeds').doc(widget.docId).set({
@@ -450,10 +531,10 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
           'englishScript': en,
         }, SetOptions(merge: true));
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backend error: ${data['error']}')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${'sync_backend_err'.tr()}${data['error']}')));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('App error: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${'sync_app_err'.tr()}$e')));
     } finally {
       setState(() => _isTranscribing = false);
     }
@@ -462,16 +543,36 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
   void _showEditScriptDialog() {
     if (_videoController.value.isPlaying) _videoController.pause();
 
-    final currentWords = _activeWords.isNotEmpty
-        ? _activeWords.map((w) => w['word'] as String).toList()
-        : _scriptController.text.trim().split(RegExp(r'\s+'));
-
     StringBuffer sb = StringBuffer();
-    for (int i = 0; i < currentWords.length; i++) {
-      if (currentWords[i].isEmpty) continue;
-      sb.write(currentWords[i]);
-      if ((i + 1) % 3 == 0) sb.write('\n');
-      else sb.write(' ');
+
+    if (_activeWords.isNotEmpty) {
+      List<int> starts = _getRowStarts(_activeWords);
+      int currentGroupIndex = 0;
+
+      for (int i = 0; i < _activeWords.length; i++) {
+        final word = _activeWords[i]['word'] as String;
+        if (word.isEmpty) continue;
+        sb.write(word);
+
+        int currentGroupStart = starts[currentGroupIndex];
+        int currentSize = (_activeWords[currentGroupStart]['groupSize'] as num?)?.toInt() ?? 3;
+        int groupEndIndex = currentGroupStart + currentSize - 1;
+
+        if (i == groupEndIndex) {
+          sb.write('\n');
+          if (currentGroupIndex < starts.length - 1) currentGroupIndex++;
+        } else {
+          sb.write(' ');
+        }
+      }
+    } else {
+      final currentWords = _scriptController.text.trim().split(RegExp(r'\s+'));
+      for (int i = 0; i < currentWords.length; i++) {
+        if (currentWords[i].isEmpty) continue;
+        sb.write(currentWords[i]);
+        if ((i + 1) % 3 == 0) sb.write('\n');
+        else sb.write(' ');
+      }
     }
 
     TextEditingController dialogController = TextEditingController(text: sb.toString().trim());
@@ -482,44 +583,33 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
         builder: (context) {
           return AlertDialog(
             backgroundColor: const Color(0xFF103856),
-            insetPadding: const EdgeInsets.all(16),
-            title: Text("Edit ${_activeLanguage.toUpperCase()} Script", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: SingleChildScrollView(
-                child: TextField(
-                  controller: dialogController,
-                  maxLines: 15,
-                  minLines: 5,
-                  textDirection: _activeLanguage == 'hebrew' ? TextDirection.rtl : TextDirection.ltr,
-                  textAlign: _activeLanguage == 'hebrew' ? TextAlign.right : TextAlign.left,
-                  style: const TextStyle(color: Colors.white, fontSize: 22, height: 1.5),
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: "Script goes here...",
-                    hintStyle: TextStyle(color: Colors.white54),
-                    filled: true,
-                    fillColor: Color(0xFF0A192F),
-                  ),
+            insetPadding: const EdgeInsets.all(10), // 🎯 Minimized outer margins
+            contentPadding: const EdgeInsets.all(10), // 🎯 Minimized inner padding
+            title: Text("${'sync_edit_script_title'.tr()} (${_activeLanguage == 'hebrew' ? 'sync_hebrew_btn'.tr() : 'sync_english_btn'.tr()})", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),            content: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.9,
+              height: MediaQuery.of(context).size.height * 0.7, // 🎯 Fills 70% of the screen height
+              child: TextField(
+                controller: dialogController,
+                maxLines: null, // 🎯 Required for expands
+                expands: true, // 🎯 Stretches text box to fill the entire available height
+                textDirection: _activeLanguage == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+                textAlign: _activeLanguage == 'hebrew' ? TextAlign.right : TextAlign.left,
+                style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4), // 🎯 Smaller font
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  hintText: 'sync_edit_hint'.tr(),
+                  hintStyle: const TextStyle(color: Colors.white54),
+                  filled: true,
+                  fillColor: const Color(0xFF0A192F),
+                  contentPadding: const EdgeInsets.all(12),
                 ),
               ),
             ),
             actions: [
-              IconButton(
-                icon: const Icon(Icons.bug_report, color: Colors.red),
-                onPressed: () {
-                  final user = FirebaseAuth.instance.currentUser;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(user == null ? "NOT LOGGED IN" : "UID: ${user.uid}"),
-                      duration: const Duration(seconds: 10),
-                    ),
-                  );
-                },
-              ),
+
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text("CANCEL", style: TextStyle(color: Colors.redAccent)),
+                child: Text('btn_cancel'.tr(), style: const TextStyle(color: Colors.redAccent)),
               ),
               TextButton(
                 onPressed: () {
@@ -532,8 +622,15 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
 
                       List<Map<String, dynamic>> newWordsList = [];
                       for (int i = 0; i < splitWords.length; i++) {
-                        int? existingTime = (i < _activeWords.length) ? _activeWords[i]['startMs'] as int? : null;
-                        newWordsList.add({'word': splitWords[i], 'startMs': existingTime});
+                        int? existingTime = (i < _activeWords.length) ? (_activeWords[i]['startMs'] as num?)?.toInt() : null;
+                        int? existingSize = (i < _activeWords.length) ? (_activeWords[i]['groupSize'] as num?)?.toInt() : null;
+                        double? existingY = (i < _activeWords.length) ? (_activeWords[i]['y'] as num?)?.toDouble() : null;
+
+                        Map<String, dynamic> newWordData = {'word': splitWords[i], 'startMs': existingTime};
+                        if (existingSize != null) newWordData['groupSize'] = existingSize;
+                        if (existingY != null) newWordData['y'] = existingY;
+
+                        newWordsList.add(newWordData);
                       }
 
                       if (_activeLanguage == 'hebrew') {
@@ -544,10 +641,12 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                         _isEnglishLocked = true;
                       }
                     });
+
+                    _silentAutoSave();
                   }
                   Navigator.pop(context);
                 },
-                child: const Text("SAVE", style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
+                child: Text('btn_save'.tr(), style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
               ),
             ],
           );
@@ -608,7 +707,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    textDirection: lang == 'hebrew' ? TextDirection.rtl : TextDirection.ltr,
+                    textDirection: lang == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
                     children: List.generate(activeTriplets.length, (index) {
                       final wordData = activeTriplets[index];
                       final word = wordData['word'] as String;
@@ -625,22 +724,35 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                       }
 
                       double fontSize = isHighlighted ? baseSize + 8.0 : baseSize;
-                      Color fillColor = isHighlighted ? Colors.yellowAccent : Colors.black;
+
+                      // 🎯 ADVANCED DYNAMIC COLOR THEMES
+                      Color strokeColor;
+                      Color fillColor;
+
+                      if (lang == 'hebrew') {
+                        // Hebrew: Lavender border -> Hot Pink border. Black text -> Lavender text.
+                        strokeColor = isHighlighted ? Colors.pinkAccent : Colors.purpleAccent.shade100;
+                        fillColor = isHighlighted ? Colors.purpleAccent.shade100 : Colors.black;
+                      } else {
+                        // English: Light Blue border always. Black text -> Yellow text.
+                        strokeColor = Colors.lightBlueAccent;
+                        fillColor = isHighlighted ? Colors.yellowAccent : Colors.black;
+                      }
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 6.0),
                         child: Directionality(
-                          textDirection: lang == 'hebrew' ? TextDirection.rtl : TextDirection.ltr,
+                          textDirection: lang == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
-                              Text(word, textAlign: TextAlign.center, textDirection: lang == 'hebrew' ? TextDirection.rtl : TextDirection.ltr, style: TextStyle(
+                              Text(word, textAlign: TextAlign.center, textDirection: lang == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr, style: TextStyle(
                                 fontSize: fontSize, fontWeight: FontWeight.w900,
-                                foreground: Paint()..style = PaintingStyle.stroke..strokeWidth = 4.0..color = Colors.lightBlueAccent,
+                                foreground: Paint()..style = PaintingStyle.stroke..strokeWidth = 4.0..color = strokeColor, // 🎯 Dynamic Stroke
                                 shadows: const [Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 2))],
                               )),
-                              Text(word, textAlign: TextAlign.center, textDirection: lang == 'hebrew' ? TextDirection.rtl : TextDirection.ltr, style: TextStyle(
-                                fontSize: fontSize, fontWeight: FontWeight.w900, color: fillColor,
+                              Text(word, textAlign: TextAlign.center, textDirection: lang == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr, style: TextStyle(
+                                fontSize: fontSize, fontWeight: FontWeight.w900, color: fillColor, // 🎯 Dynamic Fill
                               )),
                             ],
                           ),
@@ -654,7 +766,48 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
         }
     );
   }
+// 🎯 THE NEW SNAP-TO-DEFAULT LOGIC
+  Future<void> _snapActiveRowToDefault() async {
+    final double defaultY = 0.2577227722772277;
+    final int currentMillis = _videoController.value.position.inMilliseconds;
 
+    int activeGroup = _calculateFocusGroup(currentMillis, _activeWords);
+    List<int> starts = _getRowStarts(_activeWords);
+
+    if (activeGroup >= starts.length) return;
+
+    int startIndex = starts[activeGroup];
+    int currentSize = (_activeWords[startIndex]['groupSize'] as num?)?.toInt() ?? 3;
+    int endIndex = startIndex + currentSize;
+
+    bool needsUpdate = false;
+
+    setState(() {
+      for (int i = startIndex; i < endIndex && i < _hebrewWords.length; i++) {
+        _hebrewWords[i]['y'] = defaultY;
+        needsUpdate = true;
+      }
+      for (int i = startIndex; i < endIndex && i < _englishWords.length; i++) {
+        _englishWords[i]['y'] = defaultY;
+        needsUpdate = true;
+      }
+    });
+
+    if (needsUpdate) {
+      await _silentAutoSave();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Both languages aligned for this row.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -663,16 +816,64 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
         backgroundColor: const Color(0xFF103856),
         iconTheme: const IconThemeData(color: Colors.white),
         centerTitle: true,
-        title: const Text('Sync', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        actions: [
-          if (_isActiveScriptLocked)
-            IconButton(
-              icon: const Icon(Icons.edit, color: Colors.white70),
-              onPressed: _showEditScriptDialog,
+        leadingWidth: 170,
+        leading: Row(
+          children: [
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.lightBlueAccent.withOpacity(0.15),
+                  border: Border.all(color: Colors.lightBlueAccent, width: 2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.arrow_back, color: Colors.lightBlueAccent, size: 16),
+                    SizedBox(width: 6),
+                    Text('VERTICAL', style: TextStyle(color: Colors.lightBlueAccent, fontWeight: FontWeight.w900, fontSize: 12)),
+                  ],
+                ),
+              ),
             ),
+            if (_isActiveScriptLocked)
+              IconButton(
+                icon: const Icon(Icons.edit, color: Colors.white70),
+                onPressed: _showEditScriptDialog,
+              ),
+          ],
+        ),
+        title: Text('sync_appbar_title'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        actions: [
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white70),
             onPressed: _openSettingsPanel,
+          ),
+          InkWell(
+            onTap: () {
+              if (context.locale.languageCode == 'he') {
+                context.setLocale(const Locale('en'));
+              } else {
+                context.setLocale(const Locale('he'));
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              alignment: Alignment.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.language, color: Colors.lightBlue, size: 22),
+                  const SizedBox(height: 2),
+                  Text(
+                      context.locale.languageCode == 'he' ? 'English' : 'עברית',
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -708,7 +909,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
             if (_showEnglish && _isEnglishLocked)
               _buildFlashcardRow(_englishWords, 'english'),
 
-            // STATE A: SETUP
+// STATE A: SETUP
             if (!_isActiveScriptLocked)
               Expanded(
                 child: Container(
@@ -721,7 +922,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                           maxLines: null,
                           style: const TextStyle(color: Colors.white, fontSize: 18),
                           decoration: InputDecoration(
-                            hintText: "Paste script or hit Auto-Transcribe...",
+                            hintText: 'sync_script_hint'.tr(),
                             hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
                             border: InputBorder.none,
                           ),
@@ -757,7 +958,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                               icon: _isTranscribing
                                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                                   : const Icon(Icons.auto_awesome, size: 18),
-                              label: Text(_isTranscribing ? "WAIT..." : "TRANSCRIBE", style: const TextStyle(fontWeight: FontWeight.bold)),
+                              label: Text(_isTranscribing ? 'sync_btn_wait'.tr() : 'sync_btn_transcribe'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -770,7 +971,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                                 padding: const EdgeInsets.symmetric(vertical: 16),
                               ),
                               onPressed: _lockScript,
-                              child: const Text("CHOP & LOCK", style: TextStyle(fontWeight: FontWeight.bold)),
+                              child: Text('sync_btn_chop_lock'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
                             ),
                           ),
                         ],
@@ -806,12 +1007,13 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        // Scrubbing Background
+// Scrubbing Background
                         Positioned(
                           top: 0, left: 0, right: 0, height: 65,
                           child: GestureDetector(
                             behavior: HitTestBehavior.opaque,
                             onPanStart: (details) {
+                              _videoController.pause();
                               setState(() {
                                 _isScrubbing = true;
                                 _scrubPositionMs = _videoController.value.position.inMilliseconds.toDouble();
@@ -826,30 +1028,28 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                                 _scrubPositionMs = _scrubPositionMs.clamp(0.0, _videoController.value.duration.inMilliseconds.toDouble());
                               });
 
-                              if (DateTime.now().difference(_lastScrubTime).inMilliseconds > 900) {
+                              // Refreshes every 150ms to prevent audio stuttering while dragging
+                              if (DateTime.now().difference(_lastScrubTime).inMilliseconds > 150) {
                                 _lastScrubTime = DateTime.now();
 
-                                _videoController.seekTo(Duration(milliseconds: _scrubPositionMs.round())).then((_) {
-                                  if (_isScrubbing && mounted) {
-                                    if (isDraggingForward) {
-                                      _videoController.play();
-                                    } else {
-                                      _videoController.pause();
-                                    }
-                                  }
-                                });
+                                _videoController.seekTo(Duration(milliseconds: _scrubPositionMs.round()));
+
+                                // 🎯 Play audio if moving forward, pause if dragging backward
+                                if (isDraggingForward) {
+                                  _videoController.play();
+                                } else {
+                                  _videoController.pause();
+                                }
                               }
                             },
-                            onPanEnd: (details) async {
-                              final finalPos = _scrubPositionMs.round();
+                            onPanEnd: (details) {
+                              // 🎯 KILL THE MOTOR the exact millisecond your finger leaves the glass
                               _videoController.pause();
-                              await _videoController.seekTo(Duration(milliseconds: finalPos));
-
-                              if (mounted) {
-                                setState(() => _isScrubbing = false);
-                              }
+                              setState(() => _isScrubbing = false);
+                              _videoController.seekTo(Duration(milliseconds: _scrubPositionMs.round()));
                             },
                             onPanCancel: () {
+                              _videoController.pause();
                               setState(() => _isScrubbing = false);
                             },
                             child: Container(
@@ -965,14 +1165,13 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
 
 
 
+
 // ZONE 3: CONTROLS (Slim Profile & Bottom Aligned)
-              // ZONE 3: CONTROLS (Slim Profile & Bottom Aligned)
               Container(
                 color: Colors.black,
-                // 🎯 Added horizontal padding so spaceBetween doesn't hug the screen edges
-                padding: const EdgeInsets.only(top: 5, bottom: 16, left: 8, right: 8),
+                padding: const EdgeInsets.only(top: 5, bottom: 10, left: 16, right: 16),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween, // 🎯 Spaced evenly to the edges
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     IconButton(
@@ -982,21 +1181,36 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                       onPressed: _toggleMute,
                     ),
 
-                    // 🎯 Words Per Row Popup (Moved to Left Side)
+                    // 🎯 SMART Words Per Row Popup
                     PopupMenuButton<int>(
                       color: const Color(0xFF103856),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       onSelected: (int size) {
-                        final currentMillis = _videoController.value.position.inMilliseconds;
+                        // 1. Find the exact index of the next marker you are about to drop
+                        int targetIndex = _activeWords.indexWhere((w) => w['startMs'] == null);
+                        if (targetIndex == -1) targetIndex = _activeWords.length - 1;
+
                         List<int> starts = _getRowStarts(_activeWords);
-                        int activeGroup = _calculateFocusGroup(currentMillis, _activeWords);
-                        if (activeGroup < starts.length) {
-                          int startIndex = starts[activeGroup];
-                          setState(() {
-                            _activeWords[startIndex]['groupSize'] = size;
-                          });
-                          _silentAutoSave();
+                        int groupToChange = 0;
+
+                        for (int r = 0; r < starts.length; r++) {
+                          int rowEnd = (r + 1 < starts.length) ? starts[r + 1] : _activeWords.length;
+                          if (targetIndex >= starts[r] && targetIndex < rowEnd) {
+                            groupToChange = r;
+                            // 🎯 THE FIX: If you just completed a row and are about to start a new one,
+                            // but you hit this button, we assume you want to expand the PREVIOUS row to absorb this new word!
+                            if (targetIndex == starts[r] && r > 0) {
+                              groupToChange = r - 1;
+                            }
+                            break;
+                          }
                         }
+
+                        int startIndex = starts[groupToChange];
+                        setState(() {
+                          _activeWords[startIndex]['groupSize'] = size;
+                        });
+                        _silentAutoSave();
                       },
                       itemBuilder: (BuildContext context) {
                         return [3, 4, 5, 6].map((int size) {
@@ -1006,7 +1220,6 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                           );
                         }).toList();
                       },
-                      // 🎯 Visually represents a row broken into column chunks
                       child: const Icon(Icons.view_week_rounded, color: Colors.blueAccent, size: 28),
                     ),
 
@@ -1023,12 +1236,11 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                       onPressed: _addNextMarker,
                     ),
 
-                    // 🎯 Undo Button (Moved to Right Side, Arrow Flipped)
                     IconButton(
                       iconSize: 28,
                       color: Colors.redAccent,
-                      icon: const Icon(Icons.redo), // 🎯 Reverses the arrow direction
-                      onPressed: _removeLastMarker,
+                      icon: const Icon(Icons.redo),
+                      onPressed: _snapActiveRowToDefault, // 🎯 Hijacked to snap the row to default
                     ),
 
                     // ⏩ SPEED POPUP MENU

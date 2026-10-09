@@ -1,17 +1,17 @@
 <!DOCTYPE html>
 <html lang="he">
 <head>
-  <script>
-    // Automatically unregister any existing Service Workers for end users
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        for (let registration of registrations) {
-          registration.unregister();
-          console.log('Old Service Worker destroyed to force fresh update.');
-        }
-      });
-    }
-  </script>
+<!--  <script>-->
+<!--    // Automatically unregister any existing Service Workers for end users-->
+<!--    if ('serviceWorker' in navigator) {-->
+<!--      navigator.serviceWorker.getRegistrations().then(function(registrations) {-->
+<!--        for (let registration of registrations) {-->
+<!--          registration.unregister();-->
+<!--          console.log('Old Service Worker destroyed to force fresh update.');-->
+<!--        }-->
+<!--      });-->
+<!--    }-->
+<!--  </script>-->
   <script>
     window.deferredPrompt = null;
     window.addEventListener('beforeinstallprompt', (e) => {
@@ -181,7 +181,7 @@
   </script>
 
 
-  <script src="flutter_bootstrap.js?v1070" async></script>
+
   <base href="/">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -202,7 +202,7 @@
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
   <link rel="apple-touch-icon" sizes="512x512" href="icons/Icon-512.png">
 
-<!--  <meta name="video-id" content="moshe-feiglin-intro-zehut">-->
+  <!--  <meta name="video-id" content="moshe-feiglin-intro-zehut">-->
   <meta itemprop="image" content="https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/moshe-feiglin-intro-zehut.jpg">
 
   <!-- OPEN GRAPH / FACEBOOK / WHATSAPP TAGS -->
@@ -224,48 +224,45 @@
 
   <style>
     body { background-color: #ffffff; margin: 0; }
-    .splash-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      position: fixed; /* Locks to the glass of the screen, not the document */
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 2147483647; /* Maximum possible z-index */
-      background-color: white;
-      transition: opacity 0.5s ease-out;
-    }
-    .splash-logo {
-      width: 150px;
-      height: auto;
-      animation: splashPulse 1.2s infinite alternate;
-    }
-    @keyframes splashPulse {
-      0% { transform: scale(1); }
-      100% { transform: scale(1.1); }
-    }
+flt-text-field, input, textarea { background-color: transparent !important; }
+        input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus { -webkit-box-shadow: 0 0 0 1000px #1E293B inset !important; -webkit-text-fill-color: white !important; }
+
+        .splash-container { display: flex; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; z-index: 2147483647; background-color: #ffffff; transition: opacity 0.5s ease-out; }
+        .splash-logo { width: 150px; height: auto; animation: splashPulse 1.2s infinite alternate; }
+        @keyframes splashPulse { 0% { transform: scale(1); } 100% { transform: scale(1.1); } }
   </style>
 
 </head>
 <body>
 <div class="splash-container" id="splash-screen">
-  <!-- Uses your existing Zehut logo -->
   <img class="splash-logo" src="zehut-logo.png" alt="Loading Zehut..." />
 </div>
+
 <script>
-  // Listens for Flutter to finish booting, then cleanly fades out the Zehut logo
+  // 1. THE SCALPEL: Kills the zombie Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+      for(let registration of registrations) { registration.unregister(); }
+    });
+  }
+
+  // 2. Fade out the splash screen once Flutter is ready
   window.addEventListener('flutter-first-frame', function() {
     var splash = document.getElementById('splash-screen');
     if (splash) {
+      splash.style.pointerEvents = 'none';
       splash.style.opacity = '0';
       setTimeout(() => splash.remove(), 500);
     }
   });
-</script>
 
+  // 3. WEBKIT LOCK: Forces the browser to wait 100ms to paint the logo before freezing the processor with Flutter
+  setTimeout(function() {
+    var script = document.createElement('script');
+    script.src = "flutter_bootstrap.js?v337";
+    script.async = true;
+    document.body.appendChild(script);
+  }, 100);
+</script>
 </body>
 </html>

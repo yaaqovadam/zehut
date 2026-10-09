@@ -98,23 +98,47 @@ const template = `<!DOCTYPE html>
 
   <style>
     body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; background-color: #ffffff; overflow: hidden; }
+    .splash-container {
+      display: flex; justify-content: center; align-items: center;
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      width: 100%; height: 100%; z-index: 2147483647;
+      background-color: white; transition: opacity 0.5s ease-out;
+    }
+    .splash-logo {
+      width: 150px; height: auto;
+      animation: splashPulse 1.2s infinite alternate;
+    }
+    @keyframes splashPulse { 0% { transform: scale(1); } 100% { transform: scale(1.1); } }
     flt-text-field, input, textarea { background-color: transparent !important; color: white !important; }
     input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus { -webkit-box-shadow: 0 0 0 1000px #1E293B inset !important; -webkit-text-fill-color: white !important; }
   </style>
 </head>
 <body>
+<div class="splash-container" id="splash-screen">
+  <img class="splash-logo" src="zehut-logo.png" alt="Loading Zehut..." />
+</div>
 <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-      for(let registration of registrations) { registration.unregister(); }
-    });
-  }
-  if ('caches' in window) {
-    caches.keys().then(function(names) {
-      for (let name of names) { caches.delete(name); }
-    });
-  }
+  window.addEventListener('flutter-first-frame', function() {
+    var splash = document.getElementById('splash-screen');
+    if (splash) {
+      splash.style.opacity = '0';
+      setTimeout(() => splash.remove(), 500);
+    }
+  });
 </script>
+<div class="splash-container" id="splash-screen">
+  <img class="splash-logo" src="zehut-logo.png" alt="Loading Zehut..." />
+</div>
+<script>
+  window.addEventListener('flutter-first-frame', function() {
+    var splash = document.getElementById('splash-screen');
+    if (splash) {
+      splash.style.opacity = '0';
+      setTimeout(() => splash.remove(), 500);
+    }
+  });
+</script>
+
 <script src="flutter_bootstrap.js?v253" async></script>
 </body>
 </html>`;

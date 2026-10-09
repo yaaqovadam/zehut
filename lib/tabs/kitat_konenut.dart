@@ -490,7 +490,7 @@ class _ActionTabState extends State<ActionTab> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+                  padding: const EdgeInsets.only(bottom:5, left: 20, right: 20),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -540,7 +540,7 @@ class _ActionTabState extends State<ActionTab> {
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _hasSavedPin ? const Color(0xFF1f1a54) : Theme.of(context).primaryColor,
-                            padding: const EdgeInsets.symmetric(vertical: 5),
+                            padding: const EdgeInsets.symmetric(vertical: 0),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                             elevation: 10,
                           ),
@@ -550,10 +550,10 @@ class _ActionTabState extends State<ActionTab> {
                         const SizedBox(height: 10),
                         TextButton.icon(
                           onPressed: _resetToGeolocation,
-                          icon: const Icon(Icons.my_location, color: Colors.amber, size: 18),
+                          icon: const Icon(Icons.my_location, color: Colors.blue, size: 18),
                           label: Text(
                             "map_btn_reset".tr(),
-                            style: const TextStyle(color: Colors.amber, fontSize: 15, fontWeight: FontWeight.bold),
+                            style: const TextStyle(color: Colors.blue, fontSize: 15, fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],

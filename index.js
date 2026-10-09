@@ -125,6 +125,18 @@ app.post("/processAndDeployVideo", async (req, res) => {
 <style>body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; background-color: #ffffff; overflow: hidden; }</style>
 </head>
 <body>
+<div class="splash-container" id="splash-screen">
+  <img class="splash-logo" src="zehut-logo.png" alt="Loading Zehut..." />
+</div>
+<script>
+  window.addEventListener('flutter-first-frame', function() {
+    var splash = document.getElementById('splash-screen');
+    if (splash) {
+      splash.style.opacity = '0';
+      setTimeout(() => splash.remove(), 500);
+    }
+  });
+</script>
 <script>
 if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(function(registrations) { for(let registration of registrations) { registration.unregister(); } }); }
 if ('caches' in window) { caches.keys().then(function(names) { for (let name of names) { caches.delete(name); } }); }

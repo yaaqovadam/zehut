@@ -15,6 +15,7 @@ import 'common/common.dart';
 import 'app_state.dart';
 import 'dart:html' as html;
 import 'tabs/settings_tab.dart'; // 🎯 Add this import
+import 'package:url_launcher/url_launcher.dart';
 
 // Import the new drawer we created
 import 'tabs/app_drawer.dart';
@@ -49,12 +50,7 @@ class MainShell extends WatchingWidget {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('admins').doc(safePhone).snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            backgroundColor: Colors.white,
-            body: Center(child: CircularProgressIndicator(color: Colors.lightBlue)),
-          );
-        }
+
 
         bool isAdmin = false;
         if (snapshot.hasData && snapshot.data!.exists) {
@@ -97,14 +93,21 @@ class MainShell extends WatchingWidget {
             leadingWidth: 80,
             leading: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () {},
+              onTap: () async {
+                // 🎯 Replace with the exact main site URL you want
+                final Uri url = Uri.parse('https://zehut.org.il/');
+                if (await canLaunchUrl(url)) {
+                  // 🎯 externalApplication forces a new tab/window, protecting the app state
+                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                }
+              },
               child: Transform.translate(
                 offset: Offset(0, iconOffsetY - 7.0),
                 child: Container(
                   color: Colors.transparent,
                   padding: EdgeInsets.only(
                       left: 16.0,
-                      top: isStandalone ? 8.0 : 0.0
+                      top: isStandalone ? 13 : 13.0
                   ),
                   alignment: Alignment.center,
                   child: Image.asset('assets/images/zahut-logo.png', height: 35),
@@ -185,11 +188,14 @@ class MainShell extends WatchingWidget {
               ),
             ],
           ),
-          body: views[currentIndex],
-
+          body: IndexedStack(
+            index: currentIndex,
+            children: views,
+          ),
           // 🎯 THE SWAP: Normal Tabs OR Waveform Scrubber
+// 🎯 When editing, the Shell hides its nav bar completely so FeedTab can render the scrubber!
           bottomNavigationBar: isEditMode
-              ? const EditScrubberNavBar()
+              ? const SizedBox.shrink()
               : Container(
             height: isStandalone ? 75.0 : 65.0,
             padding: const EdgeInsets.only(top: 5.0),
@@ -273,73 +279,5 @@ Widget _buildNavItem({
     ),
   );
 }
-class EditScrubberNavBar extends WatchingStatefulWidget {
-  const EditScrubberNavBar({super.key});
 
-  @override
-  State<EditScrubberNavBar> createState() => _EditScrubberNavBarState();
-}
-
-class _EditScrubberNavBarState extends State<EditScrubberNavBar> {
-
-  void _jump(int direction, List<dynamic> words) {
-    if (words.isEmpty) return;
-
-    int maxRow = (words.length - 1) ~/ 3;
-    int targetRow = di<AppState>().manualEditRow.value + direction;
-
-    if (targetRow < 0) targetRow = 0;
-    if (targetRow > maxRow) targetRow = maxRow;
-
-    di<AppState>().manualEditRow.value = targetRow;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final trackWords = watchValue((AppState s) => s.editTrackWords);
-    final bool isStandalone = kIsWeb && html.window.matchMedia('(display-mode: standalone)').matches;
-
-    return Container(
-      height: isStandalone ? 95.0 : 85.0,
-      // 🎯 Added top: 10.0 to push the buttons down 10px
-      padding: EdgeInsets.only(top: 10.0, left: 20, right: 20, bottom: isStandalone ? 15.0 : 5.0),
-      decoration: const BoxDecoration(
-        color: Colors.black,
-        // 🎯 Changed border line to lightBlue
-        border: Border(top: BorderSide(color: Colors.lightBlue, width: 2)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // ⏪ PREV BUTTON
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.grey.shade900,
-                // 🎯 Reduced vertical padding from 15 to 5 to shrink height by 20px
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
-            ),
-            icon: const Icon(Icons.fast_rewind, color: Colors.white, size: 24),
-            label: const Text("PREV", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-            onPressed: () => _jump(-1, trackWords),
-          ),
-
-          // ⏩ NEXT BUTTON
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.lightBlue,
-                // 🎯 Reduced vertical padding from 15 to 5 to shrink height by 20px
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
-            ),
-            label: const Text("NEXT", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
-            icon: const Icon(Icons.fast_forward, color: Colors.black, size: 24),
-            onPressed: () => _jump(1, trackWords),
-          ),
-        ],
-      ),
-    );
-  }
-}
 

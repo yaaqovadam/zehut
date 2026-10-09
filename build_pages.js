@@ -22,6 +22,18 @@ const template = `<!DOCTYPE html>
   <meta property="og:image" content="{{IMAGE}}">
 </head>
 <body>
+<div class="splash-container" id="splash-screen">
+  <img class="splash-logo" src="zehut-logo.png" alt="Loading Zehut..." />
+</div>
+<script>
+  window.addEventListener('flutter-first-frame', function() {
+    var splash = document.getElementById('splash-screen');
+    if (splash) {
+      splash.style.opacity = '0';
+      setTimeout(() => splash.remove(), 500);
+    }
+  });
+</script>
 <script src="flutter_bootstrap.js?v253" async></script>
 </body>
 </html>`;
