@@ -389,6 +389,7 @@ class _ActionTabState extends State<ActionTab> {
 
   @override
   Widget build(BuildContext context) {
+    final _ = context.locale;
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(

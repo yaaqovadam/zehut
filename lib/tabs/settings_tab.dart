@@ -7,8 +7,14 @@ import '../app_state.dart'; // Adjust this path if your file structure is differ
 Future<void> _resetSubtitleHeight(BuildContext context, bool isEnglish) async {
   final langName = isEnglish ? 'English' : 'Hebrew';
 
-  // The exact default Y position for Segment 1 from your database
-  final double defaultY = 0.2577227722772277;
+  double defaultY = 0.0;
+
+// 🎯 TWO SEPARATE DEFAULTS (Adjust these numbers to set their exact starting heights)
+  final double defaultHebrewY = 0.15; // Slightly higher
+  final double defaultEnglishY = 0; // Slightly lower
+
+  // Pick the correct one based on which button the admin pressed
+  final double targetY = isEnglish ? defaultEnglishY : defaultHebrewY;
 
   bool? confirm = await showDialog<bool>(
     context: context,
@@ -50,13 +56,13 @@ Future<void> _resetSubtitleHeight(BuildContext context, bool isEnglish) async {
       Map<String, dynamic> updates = {};
 
       if (isEnglish) {
-        updates['englishYPos'] = defaultY;
+        updates['englishYPos'] = targetY;
 
         if (data['syncedWordsEN'] != null) {
           List<dynamic> updatedWordsEN = (data['syncedWordsEN'] as List).map((wordObj) {
             if (wordObj is Map) {
               var newObj = Map<String, dynamic>.from(wordObj);
-              newObj['y'] = defaultY;
+              newObj['y'] = targetY;
               return newObj;
             }
             return wordObj;
@@ -64,13 +70,13 @@ Future<void> _resetSubtitleHeight(BuildContext context, bool isEnglish) async {
           updates['syncedWordsEN'] = updatedWordsEN;
         }
       } else {
-        updates['hebrewYPos'] = defaultY; // Assuming you have a global hebrew marker too
+        updates['hebrewYPos'] = targetY; // Assuming you have a global hebrew marker too
 
         if (data['syncedWords'] != null) {
           List<dynamic> updatedWordsHEB = (data['syncedWords'] as List).map((wordObj) {
             if (wordObj is Map) {
               var newObj = Map<String, dynamic>.from(wordObj);
-              newObj['y'] = defaultY;
+              newObj['y'] = targetY;
               return newObj;
             }
             return wordObj;
@@ -89,7 +95,7 @@ Future<void> _resetSubtitleHeight(BuildContext context, bool isEnglish) async {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('✅ All $langName words locked to Y: $defaultY'),
+          content: Text('✅ All $langName words locked to Y: $targetY'),
           backgroundColor: Colors.green,
         ),
       );

@@ -7,6 +7,7 @@ import 'admin_feed_manager.dart';
 import 'about_page.dart';
 import '../app_state.dart';
 import 'package:watch_it/watch_it.dart';
+import 'settings_tab.dart';
 
 @JS('triggerAppInstall')
 external void triggerAppInstall(JSString lang);
@@ -17,6 +18,7 @@ class AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final _ = context.locale;
     final isAdminUser = isAdmin; // Bridge to your existing code below
     return Drawer(
         backgroundColor: Colors.white,
@@ -52,6 +54,18 @@ class AppDrawer extends StatelessWidget {
                 ),
                 const Divider(color: Colors.black12, height: 1),
               ],
+              ListTile(
+                leading: const Icon(Icons.settings, color: Colors.grey, size: 26),
+                title: Text(
+                  'menu_settings'.tr(),
+                  style: const TextStyle(color: Color(0xFF103856), fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsTab()));
+                },
+              ),
+              const Divider(color: Colors.black12, height: 1),
               ListTile(
                 leading: const Icon(Icons.info_outline, color: Colors.lightBlue, size: 26),
                 title: Text(

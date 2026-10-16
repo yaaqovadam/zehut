@@ -92,6 +92,7 @@ class _PlanTabState extends State<PlanTab> {
 
   @override
   Widget build(BuildContext context) {
+    final _ = context.locale; // 🎯 Forces the tab to repaint when you click the toggle!
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(

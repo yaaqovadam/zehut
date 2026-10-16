@@ -220,7 +220,7 @@ class _VanguardTabState extends State<VanguardTab> {
                 label: Text(
                   "share_platoon".tr(),
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 26,
                     fontWeight: FontWeight.bold,
                     color: Colors.black,
                   ),

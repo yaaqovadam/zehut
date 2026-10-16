@@ -13,7 +13,8 @@ import 'main_shell.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'tabs/admin_feed_manager.dart';
-
+import 'translations.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 /*
   final batch = FirebaseFirestore.instance.batch();
@@ -36,7 +37,27 @@ import 'tabs/admin_feed_manager.dart';
   print("🔥🔥🔥 ALL 26 VIDEOS WRITTEN TO FIRESTORE D IRECTLY FROM APP! 🔥🔥🔥");
 }
 */
+Future<void> fixMosheDoc() async {
+  final db = FirebaseFirestore.instance;
 
+  // Replace 'videos' if your collection has a different name
+  final oldRef = db.collection('videos').doc('host-moshe-beit-shemesh.mp4');
+  final newRef = db.collection('videos').doc('host-moshe-beit-shemesh');
+
+  final snapshot = await oldRef.get();
+
+  if (snapshot.exists && snapshot.data() != null) {
+    // 1. Create the new document with all the exact same fields
+    await newRef.set(snapshot.data()!);
+
+    // 2. Delete the old document that has .mp4 in the name
+    await oldRef.delete();
+
+    print('Successfully recreated document without .mp4');
+  } else {
+    print('Could not find the original .mp4 document');
+  }
+}
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -65,14 +86,15 @@ void main() async {
       SystemUiMode.immersiveSticky,
     );
   }
-
+  fixMosheDoc();
   await EasyLocalization.ensureInitialized();
   await setupLocator(); // Initialize get_it / watch_it
 
   runApp(
     EasyLocalization(
       supportedLocales: const [Locale('he'), Locale('en')],
-      path: 'assets/translations',
+      path: 'translations',
+      assetLoader: const HardwiredAssetLoader(), // 🎯 ADD THIS EXACT LINE
       fallbackLocale: const Locale('he'),
       startLocale: const Locale('he'),
       child: const ZehutApp(),
@@ -162,6 +184,15 @@ class ZehutApp extends StatelessWidget {
       // home: const MainShell(),
       home: const MainShell(),
     );
+  }
+}
+
+class HardwiredAssetLoader extends AssetLoader {
+  const HardwiredAssetLoader();
+  @override
+  Future<Map<String, dynamic>> load(String path, Locale locale) async {
+    if (locale.languageCode == 'en') return AppTranslations.en;
+    return AppTranslations.he;
   }
 }
 

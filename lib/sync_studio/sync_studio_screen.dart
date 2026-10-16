@@ -6,7 +6,6 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
-import '../sync_studio/sync_studio_screen.dart';
 import 'dart:ui' as ui;
 
 class SyncStudioScreen extends StatefulWidget {
@@ -22,7 +21,6 @@ class SyncStudioScreen extends StatefulWidget {
 class _SyncStudioScreenState extends State<SyncStudioScreen> {
   late VideoPlayerController _videoController;
   bool _isVideoInitialized = false;
-  String _englishTranslation = "";
 
   // Scrubber Engine State
   bool _isScrubbing = false;
@@ -30,6 +28,10 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
   DateTime _lastScrubTime = DateTime.now();
   String _hebrewRawText = "";
   String _englishRawText = "";
+
+  // 🎯 KEYBOARD FOCUS TRACKER
+  final FocusNode _scriptFocusNode = FocusNode();
+  bool _isEditingText = false;
 
   // Language & Settings State
   String _activeLanguage = 'hebrew';
@@ -66,14 +68,25 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
     super.initState();
     _initVideo();
     _loadFirestoreData();
+
+    // 🎯 Rebuild UI instantly when keyboard opens/closes
+    _scriptFocusNode.addListener(() {
+      setState(() {});
+    });
   }
 
   Future<void> _initVideo() async {
-    _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
-    await _videoController.initialize();
-    setState(() {
-      _isVideoInitialized = true;
-    });
+    try {
+      _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+      await _videoController.initialize();
+      if (mounted) {
+        setState(() {
+          _isVideoInitialized = true;
+        });
+      }
+    } catch (e) {
+      debugPrint("Video init failed: $e");
+    }
   }
 
   void _openSettingsPanel() {
@@ -93,7 +106,6 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                       Text('sync_settings_title'.tr(), style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 24),
 
-                      // ACTIVE SYNC TRACK SELECTOR
                       Text('sync_active_track'.tr(), style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       Row(
@@ -111,7 +123,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                                 setModalState(() => _activeLanguage = 'hebrew');
                                 setState(() {
                                   _activeLanguage = 'hebrew';
-                                  if (!_isHebrewLocked) _scriptController.text = _hebrewRawText;
+                                  _scriptController.text = _hebrewRawText; // 🎯 FIX: Always pulls Hebrew text (or blanks it)
                                 });
                               },
                               child: Text('sync_hebrew_btn'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -131,7 +143,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                                 setModalState(() => _activeLanguage = 'english');
                                 setState(() {
                                   _activeLanguage = 'english';
-                                  if (!_isEnglishLocked) _scriptController.text = _englishRawText;
+                                  _scriptController.text = _englishRawText; // 🎯 FIX: Always pulls English text (or blanks it)
                                 });
                               },
                               child: Text('sync_english_btn'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -140,14 +152,10 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                         ],
                       ),
                       const SizedBox(height: 20),
-// 🎯 THE SMART RESET BUTTON (Fully Localized)
                       Center(
                         child: TextButton.icon(
                           onPressed: () {
-                            // 1. Grab the translated name of the active track (e.g. "עברית" or "English")
                             String localizedLangName = _activeLanguage == 'hebrew' ? 'sync_hebrew_btn'.tr() : 'sync_english_btn'.tr();
-
-                            // 🛑 PREVENT ACCIDENTAL TAPS: The Confirmation Dialog
                             showDialog(
                                 context: context,
                                 builder: (BuildContext dialogContext) {
@@ -156,7 +164,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                     title: Text('sync_reset_warning_title'.tr(), style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
                                     content: Text(
-                                      'sync_reset_warning_desc'.tr(args: [localizedLangName]), // 🎯 Injects the language dynamically
+                                      'sync_reset_warning_desc'.tr(args: [localizedLangName]),
                                       style: const TextStyle(color: Colors.redAccent, fontSize: 16, fontWeight: FontWeight.w600, height: 1.4),
                                     ),
                                     actions: [
@@ -205,7 +213,6 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                               color: _activeLanguage == 'hebrew' ? Colors.blueAccent : Colors.orangeAccent
                           ),
                           label: Text(
-                            // 🎯 Translates the button text and injects the language name
                               'sync_reset_btn'.tr(args: [_activeLanguage == 'hebrew' ? 'sync_hebrew_btn'.tr() : 'sync_english_btn'.tr()]),
                               style: TextStyle(
                                   color: _activeLanguage == 'hebrew' ? Colors.blueAccent : Colors.orangeAccent,
@@ -213,10 +220,10 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                               )
                           ),
                         ),
-                      ),                     const SizedBox(height: 20),
+                      ),
+                      const SizedBox(height: 20),
                       const Divider(color: Colors.white24),
 
-                      // Visibility Toggles
                       SwitchListTile(
                         title: Text('sync_show_hebrew'.tr(), style: const TextStyle(color: Colors.white)),
                         value: _showHebrew,
@@ -239,7 +246,6 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                       ),
                       const Divider(color: Colors.white24),
 
-                      // Hebrew Font Size Slider & Live Preview
                       Text('sync_heb_font_size'.tr(), style: const TextStyle(color: Colors.white70)),
                       ValueListenableBuilder<double>(
                           valueListenable: _hebrewBaseSize,
@@ -247,11 +253,13 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                             return Row(
                               children: [
                                 Expanded(
-                                  child: Slider(
-                                    value: size,
-                                    min: 14.0, max: 50.0,
-                                    activeColor: Colors.blueAccent,
-                                    onChanged: (val) => _hebrewBaseSize.value = val,
+                            child: Slider(
+                            value: size,
+                              min: 14.0, max: 50.0,
+                              activeColor: Colors.blueAccent,
+                              onChanged: (val) => _hebrewBaseSize.value = val, // Updates screen instantly
+                              onChangeEnd: (val) => _updateSetting('hebrewBaseSize', val), // Saves to DB when you let go
+
                                   ),
                                 ),
                                 const SizedBox(width: 16),
@@ -260,10 +268,10 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                                   children: [
                                     Text("זהות", style: TextStyle(
                                       fontSize: size, fontWeight: FontWeight.w900,
-                                      foreground: Paint()..style = PaintingStyle.stroke..strokeWidth = 4.0..color = Colors.purpleAccent.shade100, // 🎯 Lavender border
+                                      foreground: Paint()..style = PaintingStyle.stroke..strokeWidth = 4.0..color = Colors.purpleAccent.shade100,
                                     )),
                                     Text("זהות", style: TextStyle(
-                                      fontSize: size, fontWeight: FontWeight.w900, color: Colors.black, // 🎯 Black font
+                                      fontSize: size, fontWeight: FontWeight.w900, color: Colors.black,
                                     )),
                                   ],
                                 ),
@@ -271,10 +279,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                             );
                           }
                       ),
-
                       const SizedBox(height: 10),
-
-                      // English Font Size Slider & Live Preview
                       Text('sync_eng_font_size'.tr(), style: const TextStyle(color: Colors.white70)),
                       ValueListenableBuilder<double>(
                           valueListenable: _englishBaseSize,
@@ -286,7 +291,8 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                                     value: size,
                                     min: 14.0, max: 50.0,
                                     activeColor: Colors.orangeAccent,
-                                    onChanged: (val) => _englishBaseSize.value = val,
+                                    onChanged: (val) => _englishBaseSize.value = val, // Updates screen instantly
+                                    onChangeEnd: (val) => _updateSetting('englishBaseSize', val), // Saves to DB when you let go
                                   ),
                                 ),
                                 const SizedBox(width: 16),
@@ -315,9 +321,6 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
     );
   }
 
-
-
-
   Future<void> _updateSetting(String key, dynamic value) async {
     try {
       await FirebaseFirestore.instance.collection('feeds').doc(widget.docId).set({
@@ -337,11 +340,19 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
         setState(() {
           if (data['showHebrew'] != null) _showHebrew = data['showHebrew'];
           if (data['showEnglish'] != null) _showEnglish = data['showEnglish'];
+          if (data['hebrewBaseSize'] != null) _hebrewBaseSize.value = (data['hebrewBaseSize'] as num).toDouble();
+          if (data['englishBaseSize'] != null) _englishBaseSize.value = (data['englishBaseSize'] as num).toDouble();
 
           if (data['hebrewScript'] != null) _hebrewRawText = data['hebrewScript'];
           if (data['englishScript'] != null) _englishRawText = data['englishScript'];
           _scriptController.text = _activeLanguage == 'hebrew' ? _hebrewRawText : _englishRawText;
-          if (data['waveformUrl'] != null) _waveformUrl = data['waveformUrl'];
+          if (data['waveformUrl'] != null) {
+            _waveformUrl = data['waveformUrl'];
+          } else if (data['thumb'] != null) {
+            String rawThumb = data['thumb'];
+            // Force the .r2.dev prefix for the thumb image
+            _waveformUrl = rawThumb.replaceAll('gamfeiglintzadak.co.il', 'pub-142306085f2b48bda4045cd9efdd0d28.r2.dev');
+          }
 
           if (data['syncedWords'] != null) {
             _hebrewWords = List<dynamic>.from(data['syncedWords']).map((w) => Map<String, dynamic>.from(w)).toList();
@@ -379,26 +390,39 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
     }
   }
 
-  // --- ACTIONS ---
-
   void _lockScript() {
-    // Lock in whatever the user was currently typing in the box
-    if (_activeLanguage == 'hebrew') {
-      _hebrewRawText = _scriptController.text.trim();
-    } else {
-      _englishRawText = _scriptController.text.trim();
+    final newText = _scriptController.text.trim();
+    if (newText.isEmpty) {
+      _scriptFocusNode.unfocus();
+      return;
     }
 
+    // 🎯 Unfocus immediately to drop the keyboard and bring the video back
+    _scriptFocusNode.unfocus();
+    final splitWords = newText.split(RegExp(r'\s+'));
+
     setState(() {
-      // Chop & Lock Hebrew if it exists
-      if (_hebrewRawText.isNotEmpty && !_isHebrewLocked) {
-        _hebrewWords = _hebrewRawText.split(RegExp(r'\s+')).map((w) => {'word': w, 'startMs': null}).toList();
-        _isHebrewLocked = true;
+      List<Map<String, dynamic>> newWordsList = [];
+
+      for (int i = 0; i < splitWords.length; i++) {
+        int? existingTime = (i < _activeWords.length) ? (_activeWords[i]['startMs'] as num?)?.toInt() : null;
+        int? existingSize = (i < _activeWords.length) ? (_activeWords[i]['groupSize'] as num?)?.toInt() : null;
+        double? existingY = (i < _activeWords.length) ? (_activeWords[i]['y'] as num?)?.toDouble() : null;
+
+        Map<String, dynamic> newWordData = {'word': splitWords[i], 'startMs': existingTime};
+        if (existingSize != null) newWordData['groupSize'] = existingSize;
+        if (existingY != null) newWordData['y'] = existingY;
+
+        newWordsList.add(newWordData);
       }
 
-      // Chop & Lock English if it exists
-      if (_englishRawText.isNotEmpty && !_isEnglishLocked) {
-        _englishWords = _englishRawText.split(RegExp(r'\s+')).map((w) => {'word': w, 'startMs': null}).toList();
+      if (_activeLanguage == 'hebrew') {
+        _hebrewWords = newWordsList;
+        _hebrewRawText = newText;
+        _isHebrewLocked = true;
+      } else {
+        _englishWords = newWordsList;
+        _englishRawText = newText;
         _isEnglishLocked = true;
       }
     });
@@ -460,17 +484,13 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
     });
   }
 
-// --- SMART MONITOR LOGIC ---
-
-// --- SMART MONITOR LOGIC ---
-
   List<int> _getRowStarts(List<Map<String, dynamic>> trackWords) {
     List<int> starts = [];
     int i = 0;
     while (i < trackWords.length) {
       starts.add(i);
       int size = (trackWords[i]['groupSize'] as num?)?.toInt() ?? 3;
-      if (size < 1) size = 3; // Failsafe
+      if (size < 1) size = 3;
       i += size;
     }
     return starts;
@@ -482,7 +502,6 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
     int lastDroppedTotal = trackWords.lastIndexWhere((w) => w['startMs'] != null);
     if (lastDroppedTotal == -1) return 0;
 
-    // 🎯 Bulletproof cast
     int maxDroppedTime = (trackWords[lastDroppedTotal]['startMs'] as num).toInt();
 
     if (currentMillis >= maxDroppedTime) {
@@ -493,7 +512,6 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
       }
       return starts.length - 1;
     } else {
-      // 🎯 Bulletproof cast
       int reviewIndex = trackWords.lastIndexWhere((w) => w['startMs'] != null && ((w['startMs'] as num).toInt()) <= currentMillis);
       if (reviewIndex == -1) return 0;
       for (int r = 0; r < starts.length; r++) {
@@ -503,8 +521,6 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
       return 0;
     }
   }
-
-// --- BOILERPLATE API ---
 
   Future<void> _autoTranscribeWithAI() async {
     setState(() => _isTranscribing = true);
@@ -544,7 +560,6 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
     if (_videoController.value.isPlaying) _videoController.pause();
 
     StringBuffer sb = StringBuffer();
-
     if (_activeWords.isNotEmpty) {
       List<int> starts = _getRowStarts(_activeWords);
       int currentGroupIndex = 0;
@@ -566,92 +581,58 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
         }
       }
     } else {
-      final currentWords = _scriptController.text.trim().split(RegExp(r'\s+'));
-      for (int i = 0; i < currentWords.length; i++) {
-        if (currentWords[i].isEmpty) continue;
-        sb.write(currentWords[i]);
-        if ((i + 1) % 3 == 0) sb.write('\n');
-        else sb.write(' ');
-      }
+      sb.write(_scriptController.text.trim());
     }
 
-    TextEditingController dialogController = TextEditingController(text: sb.toString().trim());
+    setState(() {
+      _scriptController.text = sb.toString().trim();
+      _isEditingText = true;
+    });
 
-    showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) {
-          return AlertDialog(
-            backgroundColor: const Color(0xFF103856),
-            insetPadding: const EdgeInsets.all(10), // 🎯 Minimized outer margins
-            contentPadding: const EdgeInsets.all(10), // 🎯 Minimized inner padding
-            title: Text("${'sync_edit_script_title'.tr()} (${_activeLanguage == 'hebrew' ? 'sync_hebrew_btn'.tr() : 'sync_english_btn'.tr()})", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),            content: SizedBox(
-              width: MediaQuery.of(context).size.width * 0.9,
-              height: MediaQuery.of(context).size.height * 0.7, // 🎯 Fills 70% of the screen height
-              child: TextField(
-                controller: dialogController,
-                maxLines: null, // 🎯 Required for expands
-                expands: true, // 🎯 Stretches text box to fill the entire available height
-                textDirection: _activeLanguage == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
-                textAlign: _activeLanguage == 'hebrew' ? TextAlign.right : TextAlign.left,
-                style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4), // 🎯 Smaller font
-                decoration: InputDecoration(
-                  border: const OutlineInputBorder(),
-                  hintText: 'sync_edit_hint'.tr(),
-                  hintStyle: const TextStyle(color: Colors.white54),
-                  filled: true,
-                  fillColor: const Color(0xFF0A192F),
-                  contentPadding: const EdgeInsets.all(12),
-                ),
-              ),
-            ),
-            actions: [
+    // 🎯 Instantly pop the keyboard and hide the video
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) _scriptFocusNode.requestFocus();
+    });
+  }
 
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('btn_cancel'.tr(), style: const TextStyle(color: Colors.redAccent)),
-              ),
-              TextButton(
-                onPressed: () {
-                  final newText = dialogController.text.trim();
-                  if (newText.isNotEmpty) {
-                    final splitWords = newText.split(RegExp(r'\s+'));
+  void _saveEditedScript() {
+    final newText = _scriptController.text.trim();
+    if (newText.isEmpty) {
+      _scriptFocusNode.unfocus();
+      setState(() => _isEditingText = false);
+      return;
+    }
 
-                    setState(() {
-                      _scriptController.text = newText;
+    _scriptFocusNode.unfocus();
+    final splitWords = newText.split(RegExp(r'\s+'));
 
-                      List<Map<String, dynamic>> newWordsList = [];
-                      for (int i = 0; i < splitWords.length; i++) {
-                        int? existingTime = (i < _activeWords.length) ? (_activeWords[i]['startMs'] as num?)?.toInt() : null;
-                        int? existingSize = (i < _activeWords.length) ? (_activeWords[i]['groupSize'] as num?)?.toInt() : null;
-                        double? existingY = (i < _activeWords.length) ? (_activeWords[i]['y'] as num?)?.toDouble() : null;
+    setState(() {
+      List<Map<String, dynamic>> newWordsList = [];
+      for (int i = 0; i < splitWords.length; i++) {
+        int? existingTime = (i < _activeWords.length) ? (_activeWords[i]['startMs'] as num?)?.toInt() : null;
+        int? existingSize = (i < _activeWords.length) ? (_activeWords[i]['groupSize'] as num?)?.toInt() : null;
+        double? existingY = (i < _activeWords.length) ? (_activeWords[i]['y'] as num?)?.toDouble() : null;
 
-                        Map<String, dynamic> newWordData = {'word': splitWords[i], 'startMs': existingTime};
-                        if (existingSize != null) newWordData['groupSize'] = existingSize;
-                        if (existingY != null) newWordData['y'] = existingY;
+        Map<String, dynamic> newWordData = {'word': splitWords[i], 'startMs': existingTime};
+        if (existingSize != null) newWordData['groupSize'] = existingSize;
+        if (existingY != null) newWordData['y'] = existingY;
+        newWordsList.add(newWordData);
+      }
 
-                        newWordsList.add(newWordData);
-                      }
+      if (_activeLanguage == 'hebrew') {
+        _hebrewWords = newWordsList;
+        _hebrewRawText = newText;
+        _isHebrewLocked = true;
+      } else {
+        _englishWords = newWordsList;
+        _englishRawText = newText;
+        _isEnglishLocked = true;
+      }
 
-                      if (_activeLanguage == 'hebrew') {
-                        _hebrewWords = newWordsList;
-                        _isHebrewLocked = true;
-                      } else {
-                        _englishWords = newWordsList;
-                        _isEnglishLocked = true;
-                      }
-                    });
+      _isEditingText = false;
+    });
 
-                    _silentAutoSave();
-                  }
-                  Navigator.pop(context);
-                },
-                child: Text('btn_save'.tr(), style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          );
-        }
-    );
+    _silentAutoSave();
   }
 
   Future<void> _generateMissingWaveform() async {
@@ -677,6 +658,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
 
   @override
   void dispose() {
+    _scriptFocusNode.dispose();
     _videoController.dispose();
     _scriptController.dispose();
     super.dispose();
@@ -725,16 +707,13 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
 
                       double fontSize = isHighlighted ? baseSize + 8.0 : baseSize;
 
-                      // 🎯 ADVANCED DYNAMIC COLOR THEMES
                       Color strokeColor;
                       Color fillColor;
 
                       if (lang == 'hebrew') {
-                        // Hebrew: Lavender border -> Hot Pink border. Black text -> Lavender text.
                         strokeColor = isHighlighted ? Colors.pinkAccent : Colors.purpleAccent.shade100;
                         fillColor = isHighlighted ? Colors.purpleAccent.shade100 : Colors.black;
                       } else {
-                        // English: Light Blue border always. Black text -> Yellow text.
                         strokeColor = Colors.lightBlueAccent;
                         fillColor = isHighlighted ? Colors.yellowAccent : Colors.black;
                       }
@@ -748,11 +727,11 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                             children: [
                               Text(word, textAlign: TextAlign.center, textDirection: lang == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr, style: TextStyle(
                                 fontSize: fontSize, fontWeight: FontWeight.w900,
-                                foreground: Paint()..style = PaintingStyle.stroke..strokeWidth = 4.0..color = strokeColor, // 🎯 Dynamic Stroke
+                                foreground: Paint()..style = PaintingStyle.stroke..strokeWidth = 4.0..color = strokeColor,
                                 shadows: const [Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 2))],
                               )),
                               Text(word, textAlign: TextAlign.center, textDirection: lang == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr, style: TextStyle(
-                                fontSize: fontSize, fontWeight: FontWeight.w900, color: fillColor, // 🎯 Dynamic Fill
+                                fontSize: fontSize, fontWeight: FontWeight.w900, color: fillColor,
                               )),
                             ],
                           ),
@@ -766,7 +745,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
         }
     );
   }
-// 🎯 THE NEW SNAP-TO-DEFAULT LOGIC
+
   Future<void> _snapActiveRowToDefault() async {
     final double defaultY = 0.2577227722772277;
     final int currentMillis = _videoController.value.position.inMilliseconds;
@@ -808,36 +787,52 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
+    // 🎯 If this is true, the keyboard is open and you are typing
+    bool isTyping = _scriptFocusNode.hasFocus || _isEditingText;
+
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
+      resizeToAvoidBottomInset: true,
+      appBar: isTyping
+          ? AppBar(
+        backgroundColor: const Color(0xFF103856),
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.redAccent),
+          onPressed: () {
+            _scriptFocusNode.unfocus();
+            setState(() => _isEditingText = false);
+          },
+        ),
+        title: Text(
+          _isActiveScriptLocked
+              ? "${'sync_edit_script_title'.tr()} (${_activeLanguage == 'hebrew' ? 'sync_hebrew_btn'.tr() : 'sync_english_btn'.tr()})"
+              : "Paste ${_activeLanguage == 'hebrew' ? 'Hebrew' : 'English'} Script",
+          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          // 🎯 THE EXPRESSWAY: Universal "Save" button that instantly locks the new paste
+          TextButton(
+            onPressed: () {
+              if (_isActiveScriptLocked) {
+                _saveEditedScript();
+              } else {
+                _lockScript();
+              }
+            },
+            child: Text('btn_save'.tr(), style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+          const SizedBox(width: 8),
+        ],
+      )
+          : AppBar(
         backgroundColor: const Color(0xFF103856),
         iconTheme: const IconThemeData(color: Colors.white),
         centerTitle: true,
         leadingWidth: 170,
         leading: Row(
           children: [
-            const SizedBox(width: 10),
-            GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.lightBlueAccent.withOpacity(0.15),
-                  border: Border.all(color: Colors.lightBlueAccent, width: 2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: const [
-                    Icon(Icons.arrow_back, color: Colors.lightBlueAccent, size: 16),
-                    SizedBox(width: 6),
-                    Text('VERTICAL', style: TextStyle(color: Colors.lightBlueAccent, fontWeight: FontWeight.w900, fontSize: 12)),
-                  ],
-                ),
-              ),
-            ),
+            const BackButton(color: Colors.white),
             if (_isActiveScriptLocked)
               IconButton(
                 icon: const Icon(Icons.edit, color: Colors.white70),
@@ -845,8 +840,13 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
               ),
           ],
         ),
-        title: Text('sync_appbar_title'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        actions: [
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            'sync_appbar_title'.tr(),
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),        actions: [
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white70),
             onPressed: _openSettingsPanel,
@@ -880,16 +880,19 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 10),
+            // 🎯 Pushes everything down slightly so it's not crushed against the AppBar
+            if (!isTyping) const SizedBox(height: 16),
 
-            // HEBREW SUBS (ABOVE VIDEO)
-            if (_showHebrew && _isHebrewLocked)
+            // 🎯 HEBREW SUBS (STACKED ABOVE VIDEO)
+            if (_showHebrew && _isHebrewLocked && !isTyping)
               _buildFlashcardRow(_hebrewWords, 'hebrew'),
 
-            // ZONE 0: VIDEO PLAYER (Feed-Matched Dimensions)
-            if (_isVideoInitialized)
+
+
+            // 🎯 ZONE 0: VIDEO PLAYER
+            if (_isVideoInitialized && !isTyping)
               SizedBox(
-                height: MediaQuery.of(context).size.height * 0.4,
+                height: MediaQuery.of(context).size.height * 0.35, // Adjusted height so everything fits perfectly
                 width: MediaQuery.of(context).size.width,
                 child: ClipRect(
                   child: FittedBox(
@@ -902,25 +905,26 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                   ),
                 ),
               )
-            else
+            else if (!_isVideoInitialized && !isTyping)
               const Expanded(child: Center(child: CircularProgressIndicator(color: Colors.purpleAccent))),
-
-            // ENGLISH SUBS (BELOW VIDEO)
-            if (_showEnglish && _isEnglishLocked)
+            // 🎯 ENGLISH SUBS (STACKED ABOVE VIDEO, JUST LIKE HEBREW)
+            if (_showEnglish && _isEnglishLocked && !isTyping)
               _buildFlashcardRow(_englishWords, 'english'),
-
-// STATE A: SETUP
+            // 🎯 STATE A: SETUP (Expands to fill the ENTIRE SCREEN when typing)
             if (!_isActiveScriptLocked)
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: EdgeInsets.all(isTyping ? 8.0 : 20.0),
                   child: Column(
                     children: [
                       Expanded(
                         child: TextField(
                           controller: _scriptController,
+                          focusNode: _scriptFocusNode, // 🎯 Tracks focus to hide video
                           maxLines: null,
-                          style: const TextStyle(color: Colors.white, fontSize: 18),
+                          textDirection: _activeLanguage == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+                          textAlign: _activeLanguage == 'hebrew' ? TextAlign.right : TextAlign.left,
+                          style: const TextStyle(color: Colors.white, fontSize: 18, height: 1.4),
                           decoration: InputDecoration(
                             hintText: 'sync_script_hint'.tr(),
                             hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
@@ -928,63 +932,84 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 1,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orangeAccent.shade700,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                      if (!isTyping) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 1,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orangeAccent.shade700,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                ),
+                                onPressed: _isGeneratingWaveform ? null : _generateMissingWaveform,
+                                child: _isGeneratingWaveform
+                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                    : const Icon(Icons.waves, size: 24),
                               ),
-                              onPressed: _isGeneratingWaveform ? null : _generateMissingWaveform,
-                              child: _isGeneratingWaveform
-                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                  : const Icon(Icons.waves, size: 24),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            flex: 2,
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.purpleAccent.shade700,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 2,
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purpleAccent.shade700,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                ),
+                                onPressed: _isTranscribing ? null : _autoTranscribeWithAI,
+                                icon: _isTranscribing
+                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                    : const Icon(Icons.auto_awesome, size: 18),
+                                label: Text(_isTranscribing ? 'sync_btn_wait'.tr() : 'sync_btn_transcribe'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
                               ),
-                              onPressed: _isTranscribing ? null : _autoTranscribeWithAI,
-                              icon: _isTranscribing
-                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                  : const Icon(Icons.auto_awesome, size: 18),
-                              label: Text(_isTranscribing ? 'sync_btn_wait'.tr() : 'sync_btn_transcribe'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            flex: 2,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.lightBlue,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 2,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.lightBlue,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                ),
+                                onPressed: _lockScript,
+                                child: Text('sync_btn_chop_lock'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
                               ),
-                              onPressed: _lockScript,
-                              child: Text('sync_btn_chop_lock'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ]
                     ],
                   ),
                 ),
               ),
 
-            // STATE B: SYNC ENGINE (Lollipops & Controls)
-            if (_isActiveScriptLocked) ...[
+            // 🎯 STATE B EDITOR: ONLY RENDERS WHEN EDITING AN ALREADY LOCKED SCRIPT
+            if (_isActiveScriptLocked && isTyping)
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  child: TextField(
+                    controller: _scriptController,
+                    focusNode: _scriptFocusNode,
+                    maxLines: null,
+                    textDirection: _activeLanguage == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+                    textAlign: _activeLanguage == 'hebrew' ? TextAlign.right : TextAlign.left,
+                    style: const TextStyle(color: Colors.white, fontSize: 18, height: 1.4),
+                    decoration: InputDecoration(
+                      hintText: 'sync_edit_hint'.tr(),
+                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+              ),
 
-              // ZONE 2: INFINITE DRAGGABLE LOLLIPOPS & WAVEFORM
+            // 🎯 STATE B TIMELINE: ONLY RENDERS WHEN NOT TYPING
+            if (_isActiveScriptLocked && !isTyping) ...[
               AnimatedBuilder(
                 animation: _videoController,
                 builder: (context, child) {
@@ -1007,7 +1032,6 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-// Scrubbing Background
                         Positioned(
                           top: 0, left: 0, right: 0, height: 65,
                           child: GestureDetector(
@@ -1028,13 +1052,10 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                                 _scrubPositionMs = _scrubPositionMs.clamp(0.0, _videoController.value.duration.inMilliseconds.toDouble());
                               });
 
-                              // Refreshes every 150ms to prevent audio stuttering while dragging
                               if (DateTime.now().difference(_lastScrubTime).inMilliseconds > 150) {
                                 _lastScrubTime = DateTime.now();
-
                                 _videoController.seekTo(Duration(milliseconds: _scrubPositionMs.round()));
 
-                                // 🎯 Play audio if moving forward, pause if dragging backward
                                 if (isDraggingForward) {
                                   _videoController.play();
                                 } else {
@@ -1043,7 +1064,6 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                               }
                             },
                             onPanEnd: (details) {
-                              // 🎯 KILL THE MOTOR the exact millisecond your finger leaves the glass
                               _videoController.pause();
                               setState(() => _isScrubbing = false);
                               _videoController.seekTo(Duration(milliseconds: _scrubPositionMs.round()));
@@ -1062,8 +1082,6 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                             ),
                           ),
                         ),
-
-                        // Waveform Image
                         Positioned(
                           left: leftOffset,
                           top: 0,
@@ -1078,7 +1096,26 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                           ),
                         ),
 
-                        // Fixed Playhead
+                        ...List.generate(_videoController.value.duration.inSeconds + 1, (index) {
+                          final int secondMs = index * 1000;
+                          final double offset = centerPlayhead + ((secondMs - currentMillis) * pixelsPerMs);
+
+                          if (offset < -50 || offset > screenWidth + 50) return const SizedBox.shrink();
+
+                          return Positioned(
+                            left: offset,
+                            top: 45,
+                            child: Text(
+                              '${index}s',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          );
+                        }),
+                        // 👆 END OF SLIDING NUMBERS
                         Positioned(
                           left: centerPlayhead - 1,
                           top: 0,
@@ -1086,7 +1123,8 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                           child: Container(width: 2, color: Colors.redAccent),
                         ),
 
-                        // Dynamic Lollipops for the Active Language Track
+
+
                         ...List.generate(_activeWords.length, (index) {
                           final markerTime = _activeWords[index]['startMs'] as int?;
                           if (markerTime == null) return const SizedBox.shrink();
@@ -1094,7 +1132,6 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                           final markerLeftOffset = centerPlayhead + ((markerTime - currentMillis) * pixelsPerMs);
                           if (markerLeftOffset < -50 || markerLeftOffset > screenWidth + 50) return const SizedBox.shrink();
 
-                          // Dynamic group logic for coloring lollipops accurately
                           List<int> rowStarts = _getRowStarts(_activeWords);
                           int groupNumber = 0;
                           int numberInGroup = 1;
@@ -1139,7 +1176,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                                     width: 60,
                                     height: 60,
                                     color: Colors.transparent,
-                                    alignment: Alignment.topCenter, // 🎯 FIX: Lifts ball exactly 12px to touch the pole
+                                    alignment: Alignment.topCenter,
                                     child: Container(
                                       width: 36,
                                       height: 36,
@@ -1160,13 +1197,10 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                 },
               ),
 
-              // Spacer to push the controls down, keeping everything tight
+
+
+
               const Spacer(),
-
-
-
-
-// ZONE 3: CONTROLS (Slim Profile & Bottom Aligned)
               Container(
                 color: Colors.black,
                 padding: const EdgeInsets.only(top: 5, bottom: 10, left: 16, right: 16),
@@ -1180,13 +1214,10 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                       icon: Icon(_isMuted ? Icons.volume_off : Icons.volume_up),
                       onPressed: _toggleMute,
                     ),
-
-                    // 🎯 SMART Words Per Row Popup
                     PopupMenuButton<int>(
                       color: const Color(0xFF103856),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       onSelected: (int size) {
-                        // 1. Find the exact index of the next marker you are about to drop
                         int targetIndex = _activeWords.indexWhere((w) => w['startMs'] == null);
                         if (targetIndex == -1) targetIndex = _activeWords.length - 1;
 
@@ -1197,8 +1228,6 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                           int rowEnd = (r + 1 < starts.length) ? starts[r + 1] : _activeWords.length;
                           if (targetIndex >= starts[r] && targetIndex < rowEnd) {
                             groupToChange = r;
-                            // 🎯 THE FIX: If you just completed a row and are about to start a new one,
-                            // but you hit this button, we assume you want to expand the PREVIOUS row to absorb this new word!
                             if (targetIndex == starts[r] && r > 0) {
                               groupToChange = r - 1;
                             }
@@ -1222,7 +1251,6 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                       },
                       child: const Icon(Icons.view_week_rounded, color: Colors.blueAccent, size: 28),
                     ),
-
                     IconButton(
                       iconSize: 42,
                       color: Colors.lightBlue,
@@ -1235,15 +1263,12 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                       icon: const Icon(Icons.add),
                       onPressed: _addNextMarker,
                     ),
-
                     IconButton(
                       iconSize: 28,
                       color: Colors.redAccent,
                       icon: const Icon(Icons.redo),
-                      onPressed: _snapActiveRowToDefault, // 🎯 Hijacked to snap the row to default
+                      onPressed: _snapActiveRowToDefault,
                     ),
-
-                    // ⏩ SPEED POPUP MENU
                     PopupMenuButton<double>(
                       initialValue: _playbackSpeed,
                       color: const Color(0xFF103856),
@@ -1271,8 +1296,6 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                   ],
                 ),
               ),
-
-              // THE FIX: 5px address bar clearance (lowered row by 25px)
               const SizedBox(height: 5),
             ]
           ],

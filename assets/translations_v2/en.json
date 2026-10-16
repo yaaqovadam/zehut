@@ -175,7 +175,13 @@
   "sync_reset_warning_title": "⚠️ WARNING",
   "sync_reset_warning_desc": "Are you sure you want to wipe all timeline markers for the {} track? Your text will remain, but all sync timing will be lost. This cannot be undone.",
   "sync_reset_cancel": "CANCEL",
-  "sync_reset_confirm": "YES, NUKE IT"
-
-
+  "sync_reset_confirm": "YES, NUKE IT",
+  "menu_settings": "Settings",
+  "tab_host": "Bring Moshe",
+  "host_title": "Host a Parlor Meeting",
+  "host_desc": "The algorithms are throttling us, so we are taking the country back one living room at a time. Bring Moshe to your city.",
+  "host_city_hint": "Select your city",
+  "host_submit": "Bring Moshe to My City",
+  "host_success": "Request received! We will contact you soon to coordinate.",
+  "host_verify_btn": "Verify Account to Host"
 }
