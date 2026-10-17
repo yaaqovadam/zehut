@@ -48,23 +48,26 @@ class AppDrawer extends StatelessWidget {
                   ),
                   onTap: () {
                     Navigator.pop(context);
-                    // 🎯 THIS BRINGS THE ADMIN MANAGER PAGE BACK!
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminFeedManager()));
                   },
                 ),
                 const Divider(color: Colors.black12, height: 1),
-              ],
-              ListTile(
-                leading: const Icon(Icons.settings, color: Colors.grey, size: 26),
-                title: Text(
-                  'menu_settings'.tr(),
-                  style: const TextStyle(color: Color(0xFF103856), fontSize: 16, fontWeight: FontWeight.bold),
+
+                // 🎯 MOVED SETTINGS BUTTON INSIDE THE ADMIN BLOCK
+                ListTile(
+                  leading: const Icon(Icons.settings, color: Colors.grey, size: 26),
+                  title: Text(
+                    'drawer_settings'.tr(),
+                    style: const TextStyle(color: Color(0xFF103856), fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsTab()));
+                  },
                 ),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsTab()));
-                },
-              ),
+                const Divider(color: Colors.black12, height: 1),
+              ],
+
               const Divider(color: Colors.black12, height: 1),
               ListTile(
                 leading: const Icon(Icons.info_outline, color: Colors.lightBlue, size: 26),

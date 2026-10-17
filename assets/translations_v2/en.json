@@ -183,5 +183,19 @@
   "host_city_hint": "Select your city",
   "host_submit": "Bring Moshe to My City",
   "host_success": "Request received! We will contact you soon to coordinate.",
-  "host_verify_btn": "Verify Account to Host"
+  "host_verify_btn": "Verify Account to Host",
+  "settings_title": "Settings",
+  "settings_force_subs": "Force Show Hidden Subs",
+  "settings_force_subs_desc": "Admin override to see disabled subtitles in the feed",
+  "settings_enable_edit": "Enable Edit UI",
+  "settings_enable_edit_desc": "Show the 'EDIT SUBS' button on the video feed",
+  "settings_maint_title": "Subtitle Maintenance",
+  "settings_reset_eng": "Reset English Heights",
+  "settings_reset_heb": "Reset Hebrew Heights",
+  "settings_reset_dialog_title": "Reset {} Subtitles?",
+  "settings_reset_dialog_desc": "This will lock every individual {} word and the global marker to default height. This cannot be undone.",
+  "settings_btn_cancel": "CANCEL",
+  "settings_btn_reset": "RESET ALL",
+  "settings_msg_success": "✅ All {} words locked to default height",
+  "settings_msg_error": "Error resetting: {}"
 }

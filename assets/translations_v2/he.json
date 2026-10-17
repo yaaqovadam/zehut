@@ -179,6 +179,21 @@
   "host_city_hint": "בחר עיר",
   "host_submit": "הבא את משה לעיר שלי!",
   "host_success": "הבקשה התקבלה! ניצור קשר בקרוב לתיאום.",
-  "host_verify_btn": "אמת חשבון כדי לארח"
+  "host_verify_btn": "אמת חשבון כדי לארח",
+
+  "settings_title": "הגדרות",
+  "settings_force_subs": "הצג כתוביות מוסתרות",
+  "settings_force_subs_desc": "עקיפת מנהל כדי לראות כתוביות כבויות בפיד",
+  "settings_enable_edit": "הפעל ממשק עריכה",
+  "settings_enable_edit_desc": "הצג את כפתור 'ערוך כתוביות' על גבי הפיד",
+  "settings_maint_title": "תחזוקת כתוביות",
+  "settings_reset_eng": "אפס גובה (אנגלית)",
+  "settings_reset_heb": "אפס גובה (עברית)",
+  "settings_reset_dialog_title": "לאפס כתוביות {}?",
+  "settings_reset_dialog_desc": "פעולה זו תנעל כל מילה ב{} ואת הסמן הגלובלי לגובה ברירת המחדל. לא ניתן לבטל פעולה זו.",
+  "settings_btn_cancel": "ביטול",
+  "settings_btn_reset": "אפס הכל",
+  "settings_msg_success": "✅ כל מילות ה{} ננעלו לגובה ברירת מחדל",
+  "settings_msg_error": "שגיאה באיפוס: {}"
 }
 

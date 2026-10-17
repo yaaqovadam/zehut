@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../app_state.dart'; // Adjust this path if your file structure is different
+import 'package:easy_localization/easy_localization.dart';
+import '../app_state.dart';
 
-// 🔪 THE BATCH UPDATE LOGIC
+
 Future<void> _resetSubtitleHeight(BuildContext context, bool isEnglish) async {
-  final langName = isEnglish ? 'English' : 'Hebrew';
+  final String langName = isEnglish ? 'English' : 'עברית';
 
-  double defaultY = 0.0;
+  double defaultHebrewY = 0.15;
+  double defaultEnglishY = 0;
 
-// 🎯 TWO SEPARATE DEFAULTS (Adjust these numbers to set their exact starting heights)
-  final double defaultHebrewY = 0.15; // Slightly higher
-  final double defaultEnglishY = 0; // Slightly lower
-
-  // Pick the correct one based on which button the admin pressed
   final double targetY = isEnglish ? defaultEnglishY : defaultHebrewY;
 
   bool? confirm = await showDialog<bool>(
@@ -21,19 +18,19 @@ Future<void> _resetSubtitleHeight(BuildContext context, bool isEnglish) async {
     builder: (BuildContext context) {
       return AlertDialog(
         backgroundColor: const Color(0xFF010126),
-        title: Text('Reset $langName Subtitles?', style: const TextStyle(color: Colors.white)),
+        title: Text('settings_reset_dialog_title'.tr(args: [langName]), style: const TextStyle(color: Colors.white)),
         content: Text(
-          'This will lock every individual $langName word and the global marker to Y: $defaultY. This cannot be undone.',
+          'settings_reset_dialog_desc'.tr(args: [langName]),
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('CANCEL', style: TextStyle(color: Colors.grey)),
+            child: Text('settings_btn_cancel'.tr(), style: const TextStyle(color: Colors.grey)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('RESET ALL', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            child: Text('settings_btn_reset'.tr(), style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
           ),
         ],
       );
@@ -70,7 +67,7 @@ Future<void> _resetSubtitleHeight(BuildContext context, bool isEnglish) async {
           updates['syncedWordsEN'] = updatedWordsEN;
         }
       } else {
-        updates['hebrewYPos'] = targetY; // Assuming you have a global hebrew marker too
+        updates['hebrewYPos'] = targetY;
 
         if (data['syncedWords'] != null) {
           List<dynamic> updatedWordsHEB = (data['syncedWords'] as List).map((wordObj) {
@@ -95,7 +92,7 @@ Future<void> _resetSubtitleHeight(BuildContext context, bool isEnglish) async {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('✅ All $langName words locked to Y: $targetY'),
+          content: Text('settings_msg_success'.tr(args: [langName])),
           backgroundColor: Colors.green,
         ),
       );
@@ -103,7 +100,7 @@ Future<void> _resetSubtitleHeight(BuildContext context, bool isEnglish) async {
   } catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error resetting: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('settings_msg_error'.tr(args: [e.toString()])), backgroundColor: Colors.red),
       );
     }
   }
@@ -117,111 +114,107 @@ class SettingsTab extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Settings', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text('settings_title'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.grey.shade900,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 20),
         children: [
-          // Admin Toggles
-          ValueListenableBuilder<bool>(
-            valueListenable: di<AppState>().isAdmin,
-            builder: (context, isAdmin, _) {
-              if (!isAdmin) return const SizedBox.shrink(); // Hides from public users
-
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 1. Force Show Hidden Subs
-                  ValueListenableBuilder<bool>(
-                    valueListenable: di<AppState>().adminForceShowSubs,
-                    builder: (context, forceSubs, _) {
-                      return SwitchListTile(
-                        title: const Text('Force Show Hidden Subs', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        subtitle: const Text('Admin override to see disabled subtitles in the feed', style: TextStyle(color: Colors.grey)),
-                        value: forceSubs,
-                        activeColor: Colors.orangeAccent,
-                        onChanged: (bool value) {
-                          di<AppState>().adminForceShowSubs.value = value;
-                        },
-                      );
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 1. Force Show Hidden Subs
+              ValueListenableBuilder<bool>(
+                valueListenable: di<AppState>().adminForceShowSubs,
+                builder: (context, forceSubs, _) {
+                  return SwitchListTile(
+                    title: Text('settings_force_subs'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    subtitle: Text('settings_force_subs_desc'.tr(), style: const TextStyle(color: Colors.grey)),
+                    value: forceSubs,
+                    activeColor: Colors.orangeAccent,
+                    onChanged: (bool value) {
+                      di<AppState>().adminForceShowSubs.value = value;
                     },
-                  ),
+                  );
+                },
+              ),
 
-                  // 2. Enable Edit UI Button
-                  ValueListenableBuilder<bool>(
-                    valueListenable: di<AppState>().adminShowEditButton,
-                    builder: (context, showEditBtn, _) {
-                      return SwitchListTile(
-                        title: const Text('Enable Edit UI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        subtitle: const Text('Show the "EDIT SUBS" button on the video feed', style: TextStyle(color: Colors.grey)),
+              // 2. Enable Edit UI Button
+              ValueListenableBuilder<bool>(
+                valueListenable: di<AppState>().adminShowEditButton,
+                builder: (context, showEditBtn, _) {
+                  return Column(
+                    children: [
+                      SwitchListTile(
+                        title: Text('settings_enable_edit'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        subtitle: Text('settings_enable_edit_desc'.tr(), style: const TextStyle(color: Colors.grey)),
                         value: showEditBtn,
                         activeColor: Colors.lightBlue,
                         onChanged: (bool value) {
                           di<AppState>().adminShowEditButton.value = value;
                         },
-                      );
-                    },
-                  ),
-
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16.0),
-                    child: Divider(color: Colors.white24, thickness: 1),
-                  ),
-
-                  // 3. Subtitle Maintenance (Admin Only)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Card(
-                      color: Colors.white.withOpacity(0.05),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        side: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
-                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const Text(
-                              'Subtitle Maintenance',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            OutlinedButton.icon(
-                              icon: const Icon(Icons.restore, color: Colors.blueAccent),
-                              label: const Text('Reset vertical marker height to default - ENG'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: const BorderSide(color: Colors.blueAccent),
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                              ),
-                              onPressed: () => _resetSubtitleHeight(context, true),
-                            ),
-                            const SizedBox(height: 12),
-                            OutlinedButton.icon(
-                              icon: const Icon(Icons.restore, color: Colors.blueAccent),
-                              label: const Text('Reset vertical marker height to default - HEB'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: const BorderSide(color: Colors.blueAccent),
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                              ),
-                              onPressed: () => _resetSubtitleHeight(context, false),
-                            ),
-                          ],
+
+                      // 3. Subtitle Maintenance (Only visible when Edit UI is ON)
+                      if (showEditBtn) ...[
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16.0),
+                          child: Divider(color: Colors.white24, thickness: 1),
                         ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Card(
+                            color: Colors.white.withOpacity(0.05),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              side: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    'settings_maint_title'.tr(),
+                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.restore, color: Colors.white),
+                                    label: Text('settings_reset_eng'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF1E293B),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    onPressed: () => _resetSubtitleHeight(context, true),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.restore, color: Colors.white),
+                                    label: Text('settings_reset_heb'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF1E293B),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    onPressed: () => _resetSubtitleHeight(context, false),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ]
+                    ],
+                  );
+                },
+              ),
+            ],
           ),
         ],
       ),

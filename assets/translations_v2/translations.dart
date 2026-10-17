@@ -165,7 +165,21 @@ class AppTranslations {
     "host_city_hint": "Select your city",
     "host_submit": "Bring Moshe to My City",
     "host_success": "Request received! We will contact you soon to coordinate.",
-    "host_verify_btn": "Verify Account to Host"
+    "host_verify_btn": "Verify Account to Host",
+    "settings_title": "Settings",
+    "settings_force_subs": "Force Show Hidden Subs",
+    "settings_force_subs_desc": "Admin override to see disabled subtitles in the feed",
+    "settings_enable_edit": "Enable Edit UI",
+    "settings_enable_edit_desc": "Show the 'EDIT SUBS' button on the video feed",
+    "settings_maint_title": "Subtitle Maintenance",
+    "settings_reset_eng": "Reset English Heights",
+    "settings_reset_heb": "Reset Hebrew Heights",
+    "settings_reset_dialog_title": "Reset {} Subtitles?",
+    "settings_reset_dialog_desc": "This will lock every individual {} word and the global marker to default height. This cannot be undone.",
+    "settings_btn_cancel": "CANCEL",
+    "settings_btn_reset": "RESET ALL",
+    "settings_msg_success": "✅ All {} words locked to default height",
+    "settings_msg_error": "Error resetting: {}"
   };
 
   static const Map<String, dynamic> he = {
@@ -335,6 +349,20 @@ class AppTranslations {
     "host_city_hint": "בחר עיר",
     "host_submit": "הבא את משה לעיר שלי!",
     "host_success": "הבקשה התקבלה! ניצור קשר בקרוב לתיאום.",
-    "host_verify_btn": "אמת חשבון כדי לארח"
+    "host_verify_btn": "אמת חשבון כדי לארח",
+    "settings_title": "הגדרות",
+    "settings_force_subs": "הצג כתוביות מוסתרות",
+    "settings_force_subs_desc": "עקיפת מנהל כדי לראות כתוביות כבויות בפיד",
+    "settings_enable_edit": "הפעל ממשק עריכה",
+    "settings_enable_edit_desc": "הצג את כפתור 'ערוך כתוביות' על גבי הפיד",
+    "settings_maint_title": "תחזוקת כתוביות",
+    "settings_reset_eng": "אפס גובה (אנגלית)",
+    "settings_reset_heb": "אפס גובה (עברית)",
+    "settings_reset_dialog_title": "לאפס כתוביות {}?",
+    "settings_reset_dialog_desc": "פעולה זו תנעל כל מילה ב{} ואת הסמן הגלובלי לגובה ברירת המחדל. לא ניתן לבטל פעולה זו.",
+    "settings_btn_cancel": "ביטול",
+    "settings_btn_reset": "אפס הכל",
+    "settings_msg_success": "✅ כל מילות ה{} ננעלו לגובה ברירת מחדל",
+    "settings_msg_error": "שגיאה באיפוס: {}"
   };
 }
