@@ -13,94 +13,93 @@ import 'settings_tab.dart';
 external void triggerAppInstall(JSString lang);
 
 class AppDrawer extends StatelessWidget {
-  final bool isAdmin; // 🚨 Require the database result
+  final bool isAdmin;
   const AppDrawer({super.key, this.isAdmin = false});
 
   @override
   Widget build(BuildContext context) {
     final _ = context.locale;
-    final isAdminUser = isAdmin; // Bridge to your existing code below
+    final isAdminUser = isAdmin;
     return Drawer(
-        backgroundColor: Colors.white,
-        child: ListView( // 🚨 Removed the ValueListenable wrapper entirely
-            padding: EdgeInsets.zero,
-            children: [
-              DrawerHeader(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border(
-                    bottom: BorderSide(
-                      color: const Color(0xFF103856).withOpacity(0.1),
-                      width: 2,
-                    ),
-                  ),
-                ),
-                child: Center(
-                  child: Image.asset('assets/images/zahut-logo.png', width: 106),
+      backgroundColor: Colors.white,
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                bottom: BorderSide(
+                  color: const Color(0xFF103856).withOpacity(0.1),
+                  width: 2,
                 ),
               ),
-              if (isAdminUser) ...[
-                ListTile(
-                  leading: const Icon(Icons.security, color: Color(0xFFF59E0B), size: 26),
-                  title: Text(
-                    'menu_manage_videos'.tr(),
-                    style: const TextStyle(color: Color(0xFF103856), fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // 🎯 THIS BRINGS THE ADMIN MANAGER PAGE BACK!
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminFeedManager()));
-                  },
-                ),
-                const Divider(color: Colors.black12, height: 1),
-              ],
-              ListTile(
-                leading: const Icon(Icons.settings, color: Colors.grey, size: 26),
-                title: Text(
-                  'menu_settings'.tr(),
-                  style: const TextStyle(color: Color(0xFF103856), fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsTab()));
-                },
+            ),
+            child: Center(
+              child: Image.asset('assets/images/zahut-logo.png', width: 106),
+            ),
+          ),
+          if (isAdminUser) ...[
+            ListTile(
+              leading: const Icon(Icons.security, color: Color(0xFFF59E0B), size: 26),
+              title: Text(
+                'menu_manage_videos'.tr(),
+                style: const TextStyle(color: Color(0xFF103856), fontSize: 16, fontWeight: FontWeight.bold),
               ),
-              const Divider(color: Colors.black12, height: 1),
-              ListTile(
-                leading: const Icon(Icons.info_outline, color: Colors.lightBlue, size: 26),
-                title: Text(
-                  'menu_about'.tr(),
-                  style: const TextStyle(color: Color(0xFF103856), fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const AboutPage()));
-                },
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminFeedManager()));
+              },
+            ),
+            const Divider(color: Colors.black12, height: 1),
+            ListTile(
+              leading: const Icon(Icons.settings, color: Colors.grey, size: 26),
+              title: Text(
+                context.locale.languageCode == 'he' ? 'הגדרות' : 'Settings',
+                style: const TextStyle(color: Color(0xFF103856), fontSize: 16, fontWeight: FontWeight.bold),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.install_mobile, color: Colors.white),
-                  label: Text(
-                    'menu_install'.tr(),
-                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF103856),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  onPressed: () {
-                    final String currentLang = context.locale.languageCode;
-                    Navigator.pop(context);
-                    if (kIsWeb) {
-                      triggerAppInstall(currentLang.toJS);
-                    }
-                  },
-                ),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsTab()));
+              },
+            ),
+            const Divider(color: Colors.black12, height: 1),
+          ],
+          ListTile(
+            leading: const Icon(Icons.info_outline, color: Colors.lightBlue, size: 26),
+            title: Text(
+              'menu_about'.tr(),
+              style: const TextStyle(color: Color(0xFF103856), fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const AboutPage()));
+            },
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.install_mobile, color: Colors.white),
+              label: Text(
+                'menu_install'.tr(),
+                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
               ),
-            ],
-        ) // Closes ListView
-    ); // Closes Drawer
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF103856),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () {
+                final String currentLang = context.locale.languageCode;
+                Navigator.pop(context);
+                if (kIsWeb) {
+                  triggerAppInstall(currentLang.toJS);
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -1450,44 +1450,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
               ),
             ),
           ),
-// 🎯 TOP-LEFT (TL) PORTAL TO SYNC STUDIO
-        if (isAdmin && widget.isEditMode)
-          PositionedDirectional(
-            top: 5,
-            start: 15, // 🎯 Top Left, directly opposite of CANCEL
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {
-                _controller?.pause();
-                setState(() => _isPlaying = false);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => SyncStudioScreen(
-                      docId: widget.videoData['id']?.toString() ?? '',
-                      videoUrl: widget.videoData['url']?.toString() ?? '',
-                    ),
-                  ),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.orangeAccent.withOpacity(0.15),
-                  border: Border.all(color: Colors.orangeAccent, width: 2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: const [
-                    FaIcon(FontAwesomeIcons.fileSignature, color: Colors.orangeAccent, size: 16),
-                    SizedBox(width: 8),
-                    Text('TEXT EDITOR', style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.w900)),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        // 🎯 THE ONE AND ONLY EDIT/CANCEL BUTTON
+
 
         // 🎯 TOP-LEFT (TL) PORTAL TO SYNC STUDIO
         if (isAdmin && widget.isEditMode)

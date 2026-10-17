@@ -23,8 +23,32 @@ import 'star_of_david_house.dart';
 // Import the new drawer we created
 import 'tabs/app_drawer.dart';
 
-class MainShell extends WatchingWidget {
+class MainShell extends WatchingStatefulWidget {
   const MainShell({super.key});
+
+  @override
+  State<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends State<MainShell> {
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final tabParam = Uri.base.queryParameters['tab']?.toLowerCase();
+        if (tabParam == 'shield' || tabParam == 'vanguard' || tabParam == 'miluim') {
+          di<AppState>().setNavIndex(1);
+        } else if (tabParam == 'plan' || tabParam == 'quiz' || tabParam == '8points') {
+          di<AppState>().setNavIndex(2);
+        } else if (tabParam == 'map' || tabParam == 'action' || tabParam == 'kitat') {
+          di<AppState>().setNavIndex(3);
+        } else if (tabParam == 'host' || tabParam == 'moshe') {
+          di<AppState>().setNavIndex(4);
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

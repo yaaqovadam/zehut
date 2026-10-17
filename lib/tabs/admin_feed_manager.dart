@@ -183,7 +183,7 @@ class _AdminFeedManagerState extends State<AdminFeedManager> {
       setTimeout(() => splash.remove(), 500);
     }
   });
-</script>\n<script>\nif ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(function(registrations) { for(let registration of registrations) { registration.unregister(); } }); }\nif ('caches' in window) { caches.keys().then(function(names) { for (let name of names) { caches.delete(name); } }); }\n</script>\n<script src="flutter_bootstrap.js?v256" async></script>\n</body>\n</html>''';
+</script>\n<script>\nif ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(function(registrations) { for(let registration of registrations) { registration.unregister(); } }); }\n</script>\n<script src="flutter_bootstrap.js?v256" async></script>\n</body>\n</html>''';
       final bytes = utf8.encode(htmlContent);
       final blob = html.Blob([bytes]);
       final urlBlob = html.Url.createObjectUrlFromBlob(blob);
