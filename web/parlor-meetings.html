@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="he" translate="no">
+<head>
+  <base href="/">
+  <meta charset="UTF-8">
+  <meta name="google" content="notranslate">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+
+  <title>מביאים את משה פייגלין לעיר שלך: הירשמו עכשיו</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <meta name="video-id" content="parlor-meetings">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://gamfeiglintzadak.co.il/parlor-meetings.html">
+  <meta property="og:title" content="מביאים את משה פייגלין לעיר שלך: הירשמו עכשיו">
+  <meta property="og:description" content="רוצים להשפיע ולהביא את משה פייגלין לאזורכם? הירשמו כאן והיכנסו למאגר הפעילים הארצי.">
+  <meta property="og:image" content="https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/parlor-meetings.jpg?v=99">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="מביאים את משה פייגלין לעיר שלך: הירשמו עכשיו">
+  <meta name="twitter:description" content="רוצים להשפיע ולהביא את משה פייגלין לאזורכם? הירשמו כאן והיכנסו למאגר הפעילים הארצי.">
+  <meta name="twitter:image" content="https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/parlor-meetings.jpg?v=99">
+
+  <style>
+    body { background-color: #ffffff; margin: 0; }
+    .splash-container { display: flex; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; z-index: 2147483647; background-color: #ffffff; transition: opacity 0.5s ease-out; }
+    .splash-logo { width: 150px; height: auto; }
+  </style>
+</head>
+<body>
+<div class="splash-container" id="splash-screen">
+  <img class="splash-logo" src="zehut-logo.png" alt="Loading..." />
+</div>
+<script>
+  window.addEventListener('flutter-first-frame', function() {
+    var splash = document.getElementById('splash-screen');
+    if (splash) { splash.style.opacity = '0'; setTimeout(() => splash.remove(), 500); }
+  });
+  setTimeout(function() {
+    var script = document.createElement('script');
+    script.src = "flutter_bootstrap.js?v442";
+    script.async = true;
+    document.body.appendChild(script);
+  }, 100);
+</script>
+</body>
+</html>

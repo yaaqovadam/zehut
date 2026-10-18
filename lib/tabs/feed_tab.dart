@@ -1791,6 +1791,10 @@ class _BouncingArrowState extends State<BouncingArrow> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
+    final String currentPath = html.window.location.pathname?.toLowerCase() ?? '';
+    if (currentPath.contains('parlor-meetings') || currentPath.contains('eight-point-plan') || currentPath.contains('kitat-konenut')) {
+      return; // Stop execution so the feed tab stays out of the way!
+    }
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),

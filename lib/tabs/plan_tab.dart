@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_card_swiper/flutter_card_swiper.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:share_plus/share_plus.dart';
 import '../common/common.dart';
 import '../app_state.dart';
 import 'package:watch_it/watch_it.dart';
@@ -11,7 +12,6 @@ import 'dart:math';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:ui' as ui;
-// import 'dart:js_interop'; // 🎯 NEW IMPORT
 import 'dart:html' as html;
 import 'dart:js' as js;
 
@@ -23,17 +23,14 @@ class PlanTab extends StatefulWidget {
 }
 
 class _PlanTabState extends State<PlanTab> {
-  final CardSwiperController controller = CardSwiperController();
+  CardSwiperController controller = CardSwiperController();
   bool isFinished = false;
 
-  final Key _swiperKey = UniqueKey();
-
+  // 🎯 Changed from 'final' so clicking Review Policies generates a fresh deck starting at Card 1!
+  Key _swiperKey = UniqueKey();
 
   int _score = 0;
   final List<bool> _swipeHistory = [];
-
-  // @JS('triggerAppInstall')
-  // external void triggerAppInstall(); // 🎯 BINDS DART TO YOUR JS FUNCTION
 
   final List<Map<String, dynamic>> _policies = [
     {"day": "pol_1_day", "title": "pol_1_title", "desc": "pol_1_desc", "icon": Icons.military_tech, "color": const Color(0xFFB91C1C)},
@@ -45,24 +42,45 @@ class _PlanTabState extends State<PlanTab> {
     {"day": "pol_7_day", "title": "pol_7_title", "desc": "pol_7_desc", "icon": Icons.warning_amber_rounded, "color": const Color(0xFFF97316)},
     {"day": "pol_8_day", "title": "pol_8_title", "desc": "pol_8_desc", "icon": Icons.gavel, "color": const Color(0xFFE11D48)},
   ];
+
   String _formatForDatabase(String raw) {
     String sanitized = raw.replaceAll(RegExp(r'[^0-9]'), '');
     if (sanitized.startsWith('0')) return '+972${sanitized.substring(1)}';
     if (!sanitized.startsWith('+')) return '+$sanitized';
     return sanitized;
   }
+
+  Future<void> _sharePlan({int? matchScore}) async {
+    final bool isHe = context.locale.languageCode == 'he';
+    String text;
+    if (matchScore != null) {
+      text = isHe
+          ? "קיבלתי $matchScore% התאמה לתוכנית 8 הנקודות של משה פייגלין (זהות)!\n\nבדקו מה אחוז ההתאמה שלכם תוך דקה:\nhttps://gamfeiglintzadak.co.il/eight-point-plan.html"
+          : "I just got a $matchScore% match with Moshe Feiglin's 8-Point Plan (Zehut)!\n\nTake the 60-second swipe test to see your score:\nhttps://gamfeiglintzadak.co.il/eight-point-plan.html";
+    } else {
+      text = isHe
+          ? "מסכימים או מתנגדים? בדקו תוך דקה כמה אתם מתאימים לתוכנית 8 הנקודות של זהות:\n\nhttps://gamfeiglintzadak.co.il/eight-point-plan.html"
+          : "Agree or Disagree? Take the 60-second swipe test to see how much you align with Zehut's 8-Point Plan:\n\nhttps://gamfeiglintzadak.co.il/eight-point-plan.html";
+    }
+    await Share.share(text);
+  }
+
+  void _resetQuizToFirstQuestion() {
+    setState(() {
+      isFinished = false;
+      _score = 0;
+      _swipeHistory.clear();
+      controller.dispose();
+      controller = CardSwiperController();
+      _swiperKey = UniqueKey(); // Forces CardSwiper to rebuild fresh at Card 1
+    });
+  }
+
   @override
   void initState() {
     super.initState();
-    isFinished = di<AppState>().isLoggedIn.value;
-   // if (isFinished) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Future.delayed(const Duration(seconds: 3), () {
-          // _triggerInstallPrompt();
-        });
-      });
-  //  }
-
+    // 🎯 Always start on Question 1 (isFinished = false) until the user finishes the 8 cards!
+    isFinished = false;
   }
 
   @override
@@ -70,29 +88,10 @@ class _PlanTabState extends State<PlanTab> {
     controller.dispose();
     super.dispose();
   }
-  //
-  // void _triggerInstallPrompt() {
-  //   if (!mounted) return;
-  //
-  //   try {
-  //     String? phone = di<AppState>().userPhone.value;
-  //     if (phone != null && phone.isNotEmpty) {
-  //       di<AppState>().markA2HSPrompted(phone);
-  //     }
-  //   } catch (e) {
-  //     debugPrint("A2HS tracking error: $e");
-  //   }
-  //
-  //   if (kIsWeb) {
-  //     // 🎯 THE BULLETPROOF WAY: Dispatch a custom event.
-  //     // This prevents Dart from crashing if the JS async function behaves unexpectedly.
-  //     html.window.dispatchEvent(html.CustomEvent('showInstallPrompt'));
-  //   }
-  // }
 
   @override
   Widget build(BuildContext context) {
-    final _ = context.locale; // 🎯 Forces the tab to repaint when you click the toggle!
+    final _ = context.locale;
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
@@ -112,7 +111,7 @@ class _PlanTabState extends State<PlanTab> {
                     children: [
                       Text(
                         "plan_title".tr(),
-                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.lightBlue),
+                        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.lightBlue),
                       ),
                       if (showCaptureWall)
                         PositionedDirectional(
@@ -120,15 +119,17 @@ class _PlanTabState extends State<PlanTab> {
                           child: IconButton(
                             padding: EdgeInsets.zero,
                             icon: const Icon(Icons.close, color: Colors.grey, size: 30),
-                            onPressed: () {
-                              // 🎯 FIX 2: Clear the state and return to the beginning of the quiz
-                              setState(() {
-                                isFinished = false;
-                                _score = 0;
-                                _swipeHistory.clear();
-
-                              });
-                            },
+                            onPressed: _resetQuizToFirstQuestion,
+                          ),
+                        ),
+                      // 🎯 Regular Share button ONLY shows at the top while playing (!isFinished).
+                      // Once you finish the 8 cards, it disappears so only "Share My Score" is shown!
+                      if (!isFinished)
+                        PositionedDirectional(
+                          end: 12,
+                          child: IconButton(
+                            icon: const Icon(Icons.share, color: Color(0xFF103856), size: 28),
+                            onPressed: () => _sharePlan(),
                           ),
                         ),
                     ],
@@ -138,7 +139,7 @@ class _PlanTabState extends State<PlanTab> {
                 Expanded(
                   child: Stack(
                     children: [
-                      Offstage(offstage: isFinished, child: _buildSwiper()),
+                      if (!isFinished) _buildSwiper(),
                       if (showCaptureWall) _buildCaptureScreen(),
                       if (isFinished && isLoggedIn) _buildEndScreen(),
                     ],
@@ -157,27 +158,24 @@ class _PlanTabState extends State<PlanTab> {
       children: [
         Expanded(
           child: Padding(
-            // 🔥 ELEVATION FIX: Removed top padding to pull the deck up!
             padding: const EdgeInsets.only(bottom: 20.0),
             child: CardSwiper(
               controller: controller,
               key: _swiperKey,
               cardsCount: _policies.length,
               isLoop: false,
-              // 🎯 ADD THESE 3 LINES TO TIGHTEN THE PHYSICS
-              maxAngle: 15, // Decreased from 30. Less tilt makes the card feel less floaty.
-              threshold: 30, // Decreased from 50. Requires less physical drag distance to trigger the swipe.
-              duration: const Duration(milliseconds: 200), // Snappier fly-away animation when released.
+              maxAngle: 15,
+              threshold: 30,
+              duration: const Duration(milliseconds: 200),
               allowedSwipeDirection: const AllowedSwipeDirection.all(),
               numberOfCardsDisplayed: 3,
               backCardOffset: const Offset(0, 30),
-              // 🔥 ELEVATION FIX: Dropped top padding from 25 to 0.
               padding: const EdgeInsets.only(left: 15.0, right: 15.0, top: 0, bottom: 25.0),
               cardBuilder: (context, index, x, y) {
                 return _SmartPolicyCard(
                   policy: _policies[index],
-                  isFirstCard: index == 0, // 🔥 THE TRIGGER FOR THE GHOST NUDGE
-                  index: index, // <--- ADD THIS LINE
+                  isFirstCard: index == 0,
+                  index: index,
                 );
               },
               onSwipe: _onSwipe,
@@ -212,7 +210,6 @@ class _PlanTabState extends State<PlanTab> {
         ),
         Padding(
           padding: const EdgeInsets.only(bottom: 23.0),
-          // 👇 FORCES LEFT-TO-RIGHT LAYOUT SO CHECK IS ALWAYS ON THE RIGHT 👇
           child: Directionality(
             textDirection: ui.TextDirection.ltr,
             child: Row(
@@ -234,13 +231,13 @@ class _PlanTabState extends State<PlanTab> {
                   elevation: 0,
                   child: const Icon(Icons.undo, color: Colors.grey),
                 ),
-                // 3. ACCEPT BUTTON (Zehut Blue/Cyan instead of Green)
+                // 3. ACCEPT BUTTON (Zehut Blue/Cyan)
                 FloatingActionButton(
                   heroTag: "btn_accept",
                   onPressed: () => controller.swipe(CardSwiperDirection.right),
-                  backgroundColor: const Color(0xFF53C8E5).withOpacity(0.2), // Light Cyan BG
+                  backgroundColor: const Color(0xFF53C8E5).withOpacity(0.2),
                   elevation: 0,
-                  child: const Icon(Icons.check, color: Colors.lightBlue, size: 30), // Cyan Icon
+                  child: const Icon(Icons.check, color: Colors.lightBlue, size: 30),
                 ),
               ],
             ),
@@ -249,7 +246,6 @@ class _PlanTabState extends State<PlanTab> {
       ],
     );
   }
-
 
   void _showTopToast(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -286,10 +282,8 @@ class _PlanTabState extends State<PlanTab> {
     return Center(
       child: ElevatedButton.icon(
         onPressed: () async {
-          // 🎯 THE ONE-LINER
           await showUniversalAuthSheet(context);
 
-          // If they successfully logged in, save their score
           if (di<AppState>().isLoggedIn.value) {
             String? rawPhone = di<AppState>().userPhone.value;
             if (rawPhone != null) {
@@ -312,106 +306,97 @@ class _PlanTabState extends State<PlanTab> {
   }
 
   Widget _buildEndScreen() {
-    String? rawPhone = di<AppState>().userPhone.value;
-    if (rawPhone == null) return const SizedBox.shrink();
-    String phone = _formatForDatabase(rawPhone);
+    final bool isHe = context.locale.languageCode == 'he';
+    final int matchPercentage = (_score / _policies.length * 100).round();
 
-    return StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance.collection('citizens').doc(phone).snapshots(),
-        builder: (context, snapshot) {
-          int matchPercentage = 0;
+    String titleKey;
+    String descKey;
+    Color resultColor;
 
-          // 🎯 PULLS DIRECTLY FROM FIREBASE (Overrides local score!)
-          if (snapshot.hasData && snapshot.data!.exists) {
-            final data = snapshot.data!.data() as Map<String, dynamic>?;
-            matchPercentage = data?['match_percentage'] ?? 0;
-          } else {
-            matchPercentage = (_score / _policies.length * 100).round();
-          }
+    if (matchPercentage >= 70) {
+      titleKey = "result_high_title";
+      descKey = "result_high_desc";
+      resultColor = Colors.green;
+    } else if (matchPercentage >= 40) {
+      titleKey = "result_med_title";
+      descKey = "result_med_desc";
+      resultColor = Theme.of(context).primaryColor;
+    } else {
+      titleKey = "result_low_title";
+      descKey = "result_low_desc";
+      resultColor = Colors.red;
+    }
 
-          String titleKey;
-          String descKey;
-          Color resultColor;
-
-          if (matchPercentage >= 70) {
-            titleKey = "result_high_title";
-            descKey = "result_high_desc";
-            resultColor = Colors.green;
-          } else if (matchPercentage >= 40) {
-            titleKey = "result_med_title";
-            descKey = "result_med_desc";
-            resultColor = Theme.of(context).primaryColor;
-          } else {
-            titleKey = "result_low_title";
-            descKey = "result_low_desc";
-            resultColor = Colors.red;
-          }
-
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(35),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: resultColor, width: 5),
-                  ),
-                  child: Text(
-                    "$matchPercentage%",
-                    style: TextStyle(color: resultColor, fontSize: 48, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text("match_score".tr(), style: const TextStyle(color: Colors.grey, fontSize: 18)),
-                const SizedBox(height: 10),
-                Text(
-                  titleKey.tr(),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 10),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                  child: Text(
-                    descKey.tr(),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.grey, fontSize: 18),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      isFinished = false;
-                      _score = 0;
-                      _swipeHistory.clear();
-
-                    });
-                  },
-                  icon: const Icon(Icons.refresh, color: Colors.black),
-                  label: Text("btn_review".tr(), style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                  ),
-                )
-              ],
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(35),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: resultColor, width: 5),
             ),
-          );
-        }
+            child: Text(
+              "$matchPercentage%",
+              style: TextStyle(color: resultColor, fontSize: 48, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text("match_score".tr(), style: const TextStyle(color: Colors.grey, fontSize: 18)),
+          const SizedBox(height: 10),
+          Text(
+            titleKey.tr(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Color(0xFF103856), fontSize: 30, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
+            child: Text(
+              descKey.tr(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey, fontSize: 18),
+            ),
+          ),
+          const SizedBox(height: 20),
+          // 🎯 SHARE MY SCORE BUTTON (Only exists here on the finished screen!)
+          ElevatedButton.icon(
+            onPressed: () => _sharePlan(matchScore: matchPercentage),
+            icon: const Icon(Icons.share, color: Colors.white),
+            label: Text(
+              isHe ? "שתף את הציון שלי" : "Share My Score",
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF103856),
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // 🎯 REVIEW POLICIES BUTTON (Resets deck back to Question 1 and removes Share My Score)
+          ElevatedButton.icon(
+            onPressed: _resetQuizToFirstQuestion,
+            icon: const Icon(Icons.refresh, color: Colors.black),
+            label: Text("btn_review".tr(), style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).primaryColor,
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-
 // ==========================================
-// 🔥 THE NEW SMART POLICY CARD WIDGET
+// 🔥 THE SMART POLICY CARD WIDGET
 // ==========================================
 class _SmartPolicyCard extends StatefulWidget {
   final Map<String, dynamic> policy;
   final bool isFirstCard;
-  final int index; // <-- ADDED PROPERTY
+  final int index;
 
   const _SmartPolicyCard({required this.policy, required this.isFirstCard, required this.index});
 
@@ -420,21 +405,17 @@ class _SmartPolicyCard extends StatefulWidget {
 }
 
 class _SmartPolicyCardState extends State<_SmartPolicyCard> with SingleTickerProviderStateMixin {
-  // ... Keep your existing initState and animations exactly as they are ...
   bool _isRevealed = false;
   late AnimationController _nudgeController;
   late Animation<double> _slideAnimation;
   late Animation<double> _rotateAnimation;
 
-
   @override
   void initState() {
     super.initState();
 
-    // Faster duration for the rapid jiggle
     _nudgeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
 
-    // Rapid left/right shake sequence (5 movements)
     _slideAnimation = TweenSequence<double>([
       TweenSequenceItem(tween: Tween(begin: 0.0, end: 15.0).chain(CurveTween(curve: Curves.easeInOutSine)), weight: 1),
       TweenSequenceItem(tween: Tween(begin: 15.0, end: -15.0).chain(CurveTween(curve: Curves.easeInOutSine)), weight: 2),
@@ -444,7 +425,6 @@ class _SmartPolicyCardState extends State<_SmartPolicyCard> with SingleTickerPro
       TweenSequenceItem(tween: Tween(begin: 15.0, end: 0.0).chain(CurveTween(curve: Curves.easeInOutSine)), weight: 1),
     ]).animate(_nudgeController);
 
-    // Keep it perfectly horizontal (no tilt during the fast jiggle)
     _rotateAnimation = ConstantTween<double>(0.0).animate(_nudgeController);
 
     if (widget.isFirstCard) _triggerGhostNudge();
@@ -470,12 +450,9 @@ class _SmartPolicyCardState extends State<_SmartPolicyCard> with SingleTickerPro
 
   @override
   Widget build(BuildContext context) {
-    // 👇 ALTERNATING COLOR LOGIC 👇
-    // Evens get Cyan, Odds get a smooth Grey-Blue
     Color cardThemeColor = widget.index % 2 == 0
-        ? Colors
-              .lightBlue // Updated to lightBlue
-        : const Color(0xFF64748B); // Muted Slate/Grey-Blue
+        ? Colors.lightBlue
+        : const Color(0xFF64748B);
 
     return RepaintBoundary(
       child: AnimatedBuilder(
@@ -496,24 +473,23 @@ class _SmartPolicyCardState extends State<_SmartPolicyCard> with SingleTickerPro
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(25),
-              border: Border.all(color: cardThemeColor, width: 2.5), // Applies alternating border color
+              border: Border.all(color: cardThemeColor, width: 2.5),
               boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 8))],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // TOP HEADER
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 15),
                   decoration: BoxDecoration(
-                    color: cardThemeColor, // Applies alternating background color to the header
+                    color: cardThemeColor,
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
                   ),
                   child: Text(
                     widget.policy['day'].toString().tr(),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: Colors.white, // White text against the colored header
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 22,
                     ),

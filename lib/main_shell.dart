@@ -63,7 +63,18 @@ class _MainShellState extends State<MainShell> {
             fullHref.contains('shield') ||
             ogUrl.contains('miluim')) {
           tabParam = 'shield';
-        } else if (fullHref.contains('host-moshe') || ogUrl.contains('host-moshe')) {
+        } else if (fullHref.contains('eight-point-plan') ||
+            ogUrl.contains('eight-point-plan') ||
+            videoMeta.contains('eight-point-plan')) {
+          tabParam = 'plan';
+        } else if (fullHref.contains('parlor-meetings') ||
+            path.contains('parlor-meetings') ||
+            ogUrl.contains('parlor-meetings') ||
+            videoMeta.contains('parlor-meetings')) {
+          tabParam = 'host';
+        } else if (fullHref.contains('host-moshe') ||
+            path.contains('host-moshe') ||
+            ogUrl.contains('host-moshe')) {
           tabParam = 'host';
         }
       }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:watch_it/watch_it.dart';
+import 'package:share_plus/share_plus.dart';
 import '../app_state.dart';
 import '../common/common.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -110,6 +111,21 @@ class _HostMosheTabState extends State<HostMosheTab> {
     {"en": "Jericho", "he": "יריחו"},
   ];
 
+  Future<void> _shareHostMoshe() async {
+    final bool isHe = context.locale.languageCode == 'he';
+    final bool hasCity = selectedCity != null && selectedCity!.isNotEmpty;
+
+    final String shareText = isHe
+        ? (hasCity
+        ? "מביאים את משה פייגלין לחוג בית ב$selectedCity! רוצים לארח או להשתתף במפגש הקרוב? הירשמו כאן:\n\nhttps://gamfeiglintzadak.co.il/parlor-meetings.html?v=1"
+        : "מביאים את משה פייגלין לעיר שלכם! רוצים לארח חוג בית או להצטרף למפגש הקרוב באזורכם? הירשמו כאן:\n\nhttps://gamfeiglintzadak.co.il/parlor-meetings.html?v=1")
+        : (hasCity
+        ? "We're bringing Moshe Feiglin for a parlor meeting in $selectedCity! Want to host or attend? Sign up here:\n\nhttps://gamfeiglintzadak.co.il/parlor-meetings.html?v=1"
+        : "Bring Moshe Feiglin to your city! Want to host a parlor meeting or attend one near you? Sign up here:\n\nhttps://gamfeiglintzadak.co.il/parlor-meetings.html?v=1");
+
+    await Share.share(shareText);
+  }
+
   void _submitRequest(String phone) async {
     if (selectedCity == null || selectedCity!.isEmpty) return;
     setState(() => isSubmitting = true);
@@ -117,10 +133,18 @@ class _HostMosheTabState extends State<HostMosheTab> {
     final String safePhone = phone.replaceAll('+', '').trim();
 
     try {
-      await FirebaseFirestore.instance.collection('parlor_meetings').doc(safePhone).set({'phone': safePhone, 'city': selectedCity, 'intent': _hostIntent, 'timestamp': FieldValue.serverTimestamp(), 'status': 'pending'}, SetOptions(merge: true));
+      await FirebaseFirestore.instance.collection('parlor_meetings').doc(safePhone).set({
+        'phone': safePhone,
+        'city': selectedCity,
+        'intent': _hostIntent,
+        'timestamp': FieldValue.serverTimestamp(),
+        'status': 'pending'
+      }, SetOptions(merge: true));
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('host_success'.tr()), backgroundColor: Colors.green, duration: const Duration(seconds: 4)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('host_success'.tr()), backgroundColor: Colors.green, duration: const Duration(seconds: 4)),
+        );
       }
     } catch (e) {
       debugPrint("Error saving meeting request: $e");
@@ -173,20 +197,22 @@ class _HostMosheTabState extends State<HostMosheTab> {
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 16, color: Colors.black87, height: 1.4),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 35),
 
                   if (!isVerified) ...[
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent.shade700,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        icon: const Icon(Icons.lock_open, size: 24),
+                        label: Text("host_verify_btn".tr().toUpperCase(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        onPressed: () => showUniversalAuthSheet(context),
                       ),
-                      // 🎯 Swapped to standard Material Icon to beat the web compiler
-                      icon: const Icon(Icons.lock_open, size: 24),
-                      label: Text("host_verify_btn".tr().toUpperCase(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      onPressed: () => showUniversalAuthSheet(context),
                     ),
                   ] else ...[
                     Container(
@@ -302,19 +328,39 @@ class _HostMosheTabState extends State<HostMosheTab> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.lightBlue,
                           foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 22),
+                          padding: const EdgeInsets.symmetric(vertical: 20),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         onPressed: isSubmitting ? null : () => _submitRequest(phone!),
                         child: isSubmitting
                             ? const SizedBox(height: 30, width: 30, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
                             : Text(
-                                'host_submit'.tr(),
-                                style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900),
-                              ),
+                          'host_submit'.tr(),
+                          style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900),
+                        ),
                       ),
                     ),
                   ],
+
+                  const SizedBox(height: 14),
+
+                  // 🎯 DEDICATED SHARE BUTTON FOR PARLOR MEETINGS (Works whether logged in or not!)
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF103856), width: 2),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: const Icon(Icons.share, color: Color(0xFF103856), size: 22),
+                      label: Text(
+                        isHebrew ? "שתף הזמנה לחוג בית בעיר שלך" : "Share Parlor Meeting Invite",
+                        style: const TextStyle(color: Color(0xFF103856), fontSize: 17, fontWeight: FontWeight.w900),
+                      ),
+                      onPressed: _shareHostMoshe,
+                    ),
+                  ),
                 ],
               ),
             ),

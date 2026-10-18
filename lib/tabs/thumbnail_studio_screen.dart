@@ -28,16 +28,18 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
 
   double _imageOffsetX = 0.0;
   double _imageOffsetY = 0.0;
-  double _imageScale = 1.25;
+  double _imageScale = 1.0;
   String _iconType = 'play_blue';
-  String? _selectedDocId;
 
+  String? _selectedDocId;
+  bool _isCustomMode = false;
+
+  final TextEditingController _customFileNameController = TextEditingController(text: 'eight-point-plan.jpg');
   final TextEditingController _aiPromptController = TextEditingController();
   final TextEditingController _heb1Controller = TextEditingController();
   final TextEditingController _heb2Controller = TextEditingController();
   final TextEditingController _eng1Controller = TextEditingController();
   final TextEditingController _eng2Controller = TextEditingController();
-  final TextEditingController _fileNameController = TextEditingController(text: 'thumbnail.jpg');
 
   bool _isUploading = false;
   bool _isGeneratingAi = false;
@@ -47,20 +49,32 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
     super.initState();
     if (widget.initialDocId != null && widget.initialDocId!.isNotEmpty) {
       _selectedDocId = widget.initialDocId;
-      _fileNameController.text = '${widget.initialDocId}.jpg';
+      _isCustomMode = false;
       _loadExistingThumbnailForDoc(widget.initialDocId!);
+    } else {
+      _isCustomMode = true;
     }
   }
 
   @override
   void dispose() {
+    _customFileNameController.dispose();
     _aiPromptController.dispose();
     _heb1Controller.dispose();
     _heb2Controller.dispose();
     _eng1Controller.dispose();
     _eng2Controller.dispose();
-    _fileNameController.dispose();
     super.dispose();
+  }
+
+  String get _activePrefix {
+    if (!_isCustomMode && _selectedDocId != null && _selectedDocId!.isNotEmpty) {
+      return _selectedDocId!;
+    }
+    String custom = _customFileNameController.text
+        .trim()
+        .replaceAll(RegExp(r'\.(jpg|jpeg|png|mp4|html)$', caseSensitive: false), '');
+    return custom.isEmpty ? 'thumbnail' : custom;
   }
 
   Future<void> _loadExistingThumbnailForDoc(String docId) async {
@@ -96,7 +110,7 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
       _isViewingExisting = false;
       _imageOffsetX = 0.0;
       _imageOffsetY = 0.0;
-      _imageScale = 1.25;
+      _imageScale = 1.0;
       _heb1Controller.clear();
       _heb2Controller.clear();
       _eng1Controller.clear();
@@ -106,14 +120,11 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
   }
 
   void _reloadExistingThumb() {
-    if (_selectedDocId != null) {
+    if (!_isCustomMode && _selectedDocId != null) {
       _loadExistingThumbnailForDoc(_selectedDocId!);
-    } else if (_fileNameController.text.trim().isNotEmpty) {
-      final String cleanName = _fileNameController.text
-          .trim()
-          .replaceAll(RegExp(r'\.(jpg|jpeg|png|mp4|html)$', caseSensitive: false), '');
+    } else {
       setState(() {
-        _existingThumbUrl = '$_r2BaseUrl/$cleanName.jpg?v=${DateTime.now().millisecondsSinceEpoch}';
+        _existingThumbUrl = '$_r2BaseUrl/$_activePrefix.jpg?v=${DateTime.now().millisecondsSinceEpoch}';
         _selectedImageBytes = null;
         _isViewingExisting = true;
         _isDirty = false;
@@ -170,9 +181,9 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
       final file = input.files?.first;
       if (file == null) return;
 
-      if (_selectedDocId == null) {
+      if (_isCustomMode) {
         final String baseName = file.name.replaceAll(RegExp(r'\.[^\.]+$'), '');
-        _fileNameController.text = '$baseName.jpg';
+        _customFileNameController.text = '$baseName.jpg';
       }
 
       final reader = html.FileReader();
@@ -184,7 +195,7 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
             _isViewingExisting = false;
             _imageOffsetX = 0.0;
             _imageOffsetY = 0.0;
-            _imageScale = 1.25;
+            _imageScale = 1.0;
             _isDirty = true;
           });
         }
@@ -226,7 +237,7 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
           _isViewingExisting = false;
           _imageOffsetX = 0.0;
           _imageOffsetY = 0.0;
-          _imageScale = 1.25;
+          _imageScale = 1.0;
           _isDirty = true;
         });
       }
@@ -283,13 +294,8 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
       final Uint8List? imageBytes = await _captureHighResBytes();
       if (imageBytes == null) throw Exception('Failed to capture canvas');
 
-      String prefix = (_selectedDocId != null && _selectedDocId!.isNotEmpty)
-          ? _selectedDocId!
-          : _fileNameController.text.trim().replaceAll(RegExp(r'\.(jpg|jpeg|png|mp4|html)$', caseSensitive: false), '');
-
-      if (prefix.isEmpty) prefix = 'thumbnail';
+      final String prefix = _activePrefix;
       final String exactFileName = '$prefix.jpg';
-
       final String base64Image = base64Encode(imageBytes);
 
       final response = await http.post(
@@ -309,7 +315,7 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
       final int cacheBuster = DateTime.now().millisecondsSinceEpoch;
       final String r2Url = '$_r2BaseUrl/$exactFileName?v=$cacheBuster';
 
-      if (_selectedDocId != null && _selectedDocId!.isNotEmpty) {
+      if (!_isCustomMode && _selectedDocId != null && _selectedDocId!.isNotEmpty) {
         await FirebaseFirestore.instance.collection('feeds').doc(_selectedDocId).set({
           'thumb': r2Url,
         }, SetOptions(merge: true));
@@ -354,12 +360,7 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
       final Uint8List? pngBytes = await _captureHighResBytes();
       if (pngBytes == null) return;
 
-      String prefix = (_selectedDocId != null && _selectedDocId!.isNotEmpty)
-          ? _selectedDocId!
-          : _fileNameController.text.trim().replaceAll(RegExp(r'\.(jpg|jpeg|png|mp4|html)$', caseSensitive: false), '');
-      if (prefix.isEmpty) prefix = 'thumbnail';
-      final String fileName = '$prefix.jpg';
-
+      final String fileName = '${_activePrefix}.jpg';
       final blob = html.Blob([pngBytes], 'image/jpeg');
       final url = html.Url.createObjectUrlFromBlob(blob);
       html.AnchorElement(href: url)
@@ -470,7 +471,7 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
                     Icon(Icons.auto_awesome, size: 110, color: Colors.purpleAccent),
                     SizedBox(height: 20),
                     Text(
-                      'Blank Canvas — Select File or Generate AI',
+                      'Select File or Generate AI Below',
                       style: TextStyle(color: Colors.white70, fontSize: 36, fontWeight: FontWeight.bold),
                     ),
                   ],
@@ -753,58 +754,95 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // 1. VIDEO TARGET SELECTOR AT TOP
+                    // 1. UNIFIED TARGET SELECTOR / CUSTOM FILENAME BAR
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: const Color(0xFF1E293B),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.lightBlue.withOpacity(0.4)),
                       ),
-                      child: StreamBuilder<QuerySnapshot>(
-                        stream: FirebaseFirestore.instance.collection('feeds').orderBy('index').snapshots(),
-                        builder: (context, snapshot) {
-                          final docs = snapshot.data?.docs ?? [];
-                          return DropdownButtonHideUnderline(
-                            child: DropdownButton<String?>(
-                              value: docs.any((d) => d.id == _selectedDocId) ? _selectedDocId : null,
-                              dropdownColor: const Color(0xFF103856),
-                              isDense: true,
-                              hint: Text(
-                                isHe ? 'בחר סרטון לעריכה (טוען תמונה קיימת)...' : 'Select Video Target (Auto-loads existing)...',
-                                style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 14, fontWeight: FontWeight.bold),
-                              ),
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                              isExpanded: true,
-                              items: [
-                                DropdownMenuItem<String?>(
-                                  value: null,
-                                  child: Text(isHe ? 'שם קובץ ידני (למשל kitat-konenut.jpg)' : 'Custom Filename (e.g. kitat-konenut.jpg)'),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          StreamBuilder<QuerySnapshot>(
+                            stream: FirebaseFirestore.instance.collection('feeds').orderBy('index').snapshots(),
+                            builder: (context, snapshot) {
+                              final docs = snapshot.data?.docs ?? [];
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0F172A),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFF334155)),
                                 ),
-                                ...docs.map((doc) {
-                                  final data = doc.data() as Map<String, dynamic>;
-                                  final title = data['title']?.toString() ?? doc.id;
-                                  return DropdownMenuItem<String?>(
-                                    value: doc.id,
-                                    child: Text('$title (${doc.id}.jpg)', overflow: TextOverflow.ellipsis),
-                                  );
-                                }),
-                              ],
-                              onChanged: (val) {
-                                setState(() {
-                                  _selectedDocId = val;
-                                  if (val != null) {
-                                    _fileNameController.text = '$val.jpg';
-                                    _loadExistingThumbnailForDoc(val);
-                                  } else {
-                                    _isViewingExisting = false;
-                                    _existingThumbUrl = null;
-                                  }
-                                });
-                              },
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String?>(
+                                    value: _isCustomMode ? 'CUSTOM_MODE' : _selectedDocId,
+                                    dropdownColor: const Color(0xFF103856),
+                                    isDense: true,
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                    isExpanded: true,
+                                    items: [
+                                      DropdownMenuItem<String?>(
+                                        value: 'CUSTOM_MODE',
+                                        child: Text(
+                                          isHe ? '✏️ צור שם קובץ מותאם אישית...' : '✏️ Create Custom Filename...',
+                                          style: const TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      ...docs.map((doc) {
+                                        final data = doc.data() as Map<String, dynamic>;
+                                        final title = data['title']?.toString() ?? doc.id;
+                                        return DropdownMenuItem<String?>(
+                                          value: doc.id,
+                                          child: Text('$title (${doc.id}.jpg)', overflow: TextOverflow.ellipsis),
+                                        );
+                                      }),
+                                    ],
+                                    onChanged: (val) {
+                                      setState(() {
+                                        if (val == 'CUSTOM_MODE') {
+                                          _isCustomMode = true;
+                                          _selectedDocId = null;
+                                          _isViewingExisting = false;
+                                        } else {
+                                          _isCustomMode = false;
+                                          _selectedDocId = val;
+                                          if (val != null) {
+                                            _loadExistingThumbnailForDoc(val);
+                                          }
+                                        }
+                                      });
+                                    },
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          if (_isCustomMode) ...[
+                            const SizedBox(height: 10),
+                            TextField(
+                              controller: _customFileNameController,
+                              style: const TextStyle(color: Colors.lightBlueAccent, fontWeight: FontWeight.bold, fontSize: 15),
+                              decoration: InputDecoration(
+                                labelText: isHe ? 'שם קובץ ב-Cloudflare R2 (.jpg)' : 'Cloudflare R2 Filename (.jpg)',
+                                labelStyle: const TextStyle(color: Colors.white70, fontSize: 13),
+                                filled: true,
+                                fillColor: const Color(0xFF0F172A),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(color: Color(0xFF334155)),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(color: Colors.lightBlue, width: 2),
+                                ),
+                              ),
                             ),
-                          );
-                        },
+                          ],
+                        ],
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -834,7 +872,7 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
                     ),
                     const SizedBox(height: 10),
 
-                    // 🎯 3. COMPACT SLIDERS DIRECTLY UNDER THE PHOTO (Before Select Image File!)
+                    // 3. COMPACT SLIDERS DIRECTLY UNDER THE PHOTO
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
@@ -977,7 +1015,7 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // 5. CONTROLS CARD (Select Image File + AI + Text Lines)
+                    // 5. CONTROLS CARD
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -1003,7 +1041,7 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
                           ),
                           const SizedBox(height: 12),
 
-                          // ✨ AI BACKGROUND GENERATOR ROW
+                          // ✨ AI BACKGROUND GENERATOR
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -1081,7 +1119,9 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
                                   ),
                                   DropdownMenuItem(
                                     value: 'play_dark',
-                                    child: Text(isHe ? 'כפתור Play כהה שקוף' : 'Translucent Dark Play Button'),
+                                    child: Text(
+                                      isHe ? 'כפתור Play כהה שקוף' : 'Translucent Dark Play Button',
+                                    ),
                                   ),
                                   DropdownMenuItem(
                                     value: 'radar',
@@ -1125,12 +1165,6 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
                             controller: _eng2Controller,
                             label: isHe ? 'אנגלית - שורה 2 (לבן)' : 'English Line 2 (White)',
                             isRtl: false,
-                          ),
-                          _buildInputField(
-                            controller: _fileNameController,
-                            label: isHe ? 'שם קובץ ב-Cloudflare R2 (חייב לתאום ל-MP4/HTML)' : 'Cloudflare R2 Filename (Matches MP4/HTML prefix)',
-                            isRtl: false,
-                            readOnly: _selectedDocId != null,
                           ),
                           const SizedBox(height: 10),
 
