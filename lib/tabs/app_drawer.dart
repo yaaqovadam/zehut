@@ -8,6 +8,7 @@ import 'about_page.dart';
 import '../app_state.dart';
 import 'package:watch_it/watch_it.dart';
 import 'settings_tab.dart';
+import 'thumbnail_studio_screen.dart';
 
 @JS('triggerAppInstall')
 external void triggerAppInstall(JSString lang);
@@ -20,6 +21,8 @@ class AppDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final _ = context.locale;
     final isAdminUser = isAdmin;
+    final bool isHe = context.locale.languageCode == 'he';
+
     return Drawer(
       backgroundColor: Colors.white,
       child: ListView(
@@ -53,9 +56,21 @@ class AppDrawer extends StatelessWidget {
             ),
             const Divider(color: Colors.black12, height: 1),
             ListTile(
+              leading: const Icon(Icons.image_outlined, color: Colors.purpleAccent, size: 26),
+              title: Text(
+                isHe ? 'אולפן תמונות (Thumbnails)' : 'Thumbnail Studio',
+                style: const TextStyle(color: Color(0xFF103856), fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const ThumbnailStudioScreen()));
+              },
+            ),
+            const Divider(color: Colors.black12, height: 1),
+            ListTile(
               leading: const Icon(Icons.settings, color: Colors.grey, size: 26),
               title: Text(
-                context.locale.languageCode == 'he' ? 'הגדרות' : 'Settings',
+                isHe ? 'הגדרות' : 'Settings',
                 style: const TextStyle(color: Color(0xFF103856), fontSize: 16, fontWeight: FontWeight.bold),
               ),
               onTap: () {

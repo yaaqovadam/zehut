@@ -421,7 +421,7 @@ class _VideoDeployWidgetState extends State<VideoDeployWidget> {
       final String r2BaseUrl = "https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/";
       debugPrint("Triggering Railway Cloud Extractor...");
       final response = await http.post(
-        Uri.parse('https://zehut-server-production.up.railway.app/processAndDeployVideo'),
+        Uri.parse('https://zehut-server.onrender.com/processAndDeployVideo'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'url': url,

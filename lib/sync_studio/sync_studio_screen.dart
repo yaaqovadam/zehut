@@ -526,7 +526,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
     setState(() => _isTranscribing = true);
     try {
       final response = await http.post(
-        Uri.parse('https://zehut-server-production.up.railway.app/transcribe'),
+        Uri.parse('https://zehut-server.onrender.com/transcribe'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'url': widget.videoUrl, 'docId': widget.docId}),
       );
@@ -639,7 +639,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
     setState(() => _isGeneratingWaveform = true);
     try {
       final response = await http.post(
-        Uri.parse('https://zehut-server-production.up.railway.app/generateMissingWaveform'),
+        Uri.parse('https://zehut-server.onrender.com/generateMissingWaveform'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'url': widget.videoUrl, 'docId': widget.docId}),
       );

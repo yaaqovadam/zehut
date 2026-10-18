@@ -1,13 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart'; // 🎯 Added Video Player
+import 'package:video_player/video_player.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:web/web.dart' as web;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-// Import your tabs and state
 import 'package:zehut_app/tabs/feed_tab.dart';
 import 'tabs/plan_tab.dart';
 import 'tabs/kitat_konenut.dart';
@@ -16,11 +15,9 @@ import 'tabs/host_moshe_tab.dart';
 import 'common/common.dart';
 import 'app_state.dart';
 import 'dart:html' as html;
-import 'tabs/settings_tab.dart'; // 🎯 Add this import
+import 'tabs/settings_tab.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'star_of_david_house.dart';
-
-// Import the new drawer we created
 import 'tabs/app_drawer.dart';
 
 class MainShell extends WatchingStatefulWidget {
@@ -35,25 +32,60 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     if (kIsWeb) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final tabParam = Uri.base.queryParameters['tab']?.toLowerCase();
-        if (tabParam == 'shield' || tabParam == 'vanguard' || tabParam == 'miluim') {
-          di<AppState>().setNavIndex(1);
-        } else if (tabParam == 'plan' || tabParam == 'quiz' || tabParam == '8points') {
-          di<AppState>().setNavIndex(2);
-        } else if (tabParam == 'map' || tabParam == 'action' || tabParam == 'kitat') {
-          di<AppState>().setNavIndex(3);
-        } else if (tabParam == 'host' || tabParam == 'moshe') {
-          di<AppState>().setNavIndex(4);
+      _checkInitialDeepLink();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkInitialDeepLink());
+    }
+  }
+
+  void _checkInitialDeepLink() {
+    try {
+      String? tabParam = Uri.base.queryParameters['tab']?.toLowerCase();
+      final String fullHref = html.window.location.href.toLowerCase();
+      final String path = html.window.location.pathname?.toLowerCase() ?? '';
+      final String ogUrl = html.document
+          .querySelector('meta[property="og:url"]')
+          ?.attributes['content']
+          ?.toLowerCase() ??
+          '';
+      final String videoMeta = html.document
+          .querySelector('meta[name="video-id"]')
+          ?.attributes['content']
+          ?.toLowerCase() ??
+          '';
+
+      if (tabParam == null) {
+        if (fullHref.contains('kitat-konenut') ||
+            path.contains('kitat-konenut') ||
+            ogUrl.contains('kitat-konenut') ||
+            videoMeta.contains('kitat-konenut')) {
+          tabParam = 'map';
+        } else if (fullHref.contains('miluim') ||
+            fullHref.contains('shield') ||
+            ogUrl.contains('miluim')) {
+          tabParam = 'shield';
+        } else if (fullHref.contains('host-moshe') || ogUrl.contains('host-moshe')) {
+          tabParam = 'host';
         }
-      });
+      }
+
+      if (tabParam == 'shield' || tabParam == 'vanguard' || tabParam == 'miluim') {
+        di<AppState>().setNavIndex(1);
+      } else if (tabParam == 'plan' || tabParam == 'quiz' || tabParam == '8points') {
+        di<AppState>().setNavIndex(2);
+      } else if (tabParam == 'map' || tabParam == 'action' || tabParam == 'kitat') {
+        di<AppState>().setNavIndex(3);
+      } else if (tabParam == 'host' || tabParam == 'moshe') {
+        di<AppState>().setNavIndex(4);
+      }
+    } catch (e) {
+      debugPrint('Deep-link check error: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final currentIndex = watchValue((AppState s) => s.navIndex);
-    final isEditMode = watchValue((AppState s) => s.isFeedEditMode); // 🎯 Listens to state
+    final isEditMode = watchValue((AppState s) => s.isFeedEditMode);
 
     bool isPWA = false;
     if (kIsWeb) {
@@ -65,7 +97,7 @@ class _MainShellState extends State<MainShell> {
       const VanguardTab(),
       const PlanTab(),
       const ActionTab(),
-      const HostMosheTab(), // 🎯 The new 5th tab
+      const HostMosheTab(),
     ];
 
     final phone = watchValue((AppState s) => s.userPhone);
@@ -77,8 +109,6 @@ class _MainShellState extends State<MainShell> {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('admins').doc(safePhone).snapshots(),
       builder: (context, snapshot) {
-
-
         bool isAdmin = false;
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>?;
@@ -121,10 +151,8 @@ class _MainShellState extends State<MainShell> {
             leading: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () async {
-                // 🎯 Replace with the exact main site URL you want
                 final Uri url = Uri.parse('https://zehut.org.il/');
                 if (await canLaunchUrl(url)) {
-                  // 🎯 externalApplication forces a new tab/window, protecting the app state
                   await launchUrl(url, mode: LaunchMode.externalApplication);
                 }
               },
@@ -133,8 +161,8 @@ class _MainShellState extends State<MainShell> {
                 child: Container(
                   color: Colors.transparent,
                   padding: EdgeInsets.only(
-                      left: 16.0,
-                      top: isStandalone ? 13 : 13.0
+                    left: 16.0,
+                    top: isStandalone ? 13 : 13.0,
                   ),
                   alignment: Alignment.center,
                   child: Image.asset('assets/images/zahut-logo.png', height: 35),
@@ -167,7 +195,6 @@ class _MainShellState extends State<MainShell> {
                   return GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () async {
-                      // 🎯 Await the language change, then force the UI to redraw instantly
                       if (context.locale.languageCode == 'he') {
                         await context.setLocale(const Locale('en'));
                       } else {
@@ -225,8 +252,6 @@ class _MainShellState extends State<MainShell> {
             index: currentIndex,
             children: views,
           ),
-          // 🎯 THE SWAP: Normal Tabs OR Waveform Scrubber
-// 🎯 When editing, the Shell hides its nav bar completely so FeedTab can render the scrubber!
           bottomNavigationBar: isEditMode
               ? const SizedBox.shrink()
               : Container(
@@ -245,18 +270,13 @@ class _MainShellState extends State<MainShell> {
               bottom: true,
               child: Row(
                 children: [
-
                   _buildNavItem(iconWidget: const Icon(Icons.play_circle_fill), label: 'tab_feed'.tr(context: context), index: 0, currentIndex: currentIndex),
                   _buildNavItem(iconWidget: const MagenDavidShieldIcon(size: 26), label: 'tab_vanguard'.tr(context: context), index: 1, currentIndex: currentIndex),
                   _buildNavItem(iconWidget: const MagenDavidHouseIcon(size: 26), label: 'tab_host'.tr(context: context), index: 4, currentIndex: currentIndex),
                   _buildNavItem(iconWidget: const Icon(Icons.view_carousel), label: 'tab_100_days'.tr(context: context), index: 2, currentIndex: currentIndex),
                   _buildNavItem(iconWidget: const Icon(Icons.group), label: 'tab_action'.tr(context: context), index: 3, currentIndex: currentIndex),
-
-                ]
-
-
-
-            ),
+                ],
+              ),
             ),
           ),
         );
@@ -266,7 +286,7 @@ class _MainShellState extends State<MainShell> {
 }
 
 Widget _buildNavItem({
-  required Widget iconWidget, // 🎯 Bulletproof Widget injection (No dynamic types)
+  required Widget iconWidget,
   required String label,
   required int index,
   required int currentIndex,
@@ -288,36 +308,33 @@ Widget _buildNavItem({
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-          // 🎯 Physically raises the icon up by 10px without changing layout size
-          Transform.translate(
-          offset: const Offset(0, -3.0),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4.0),
-            decoration: BoxDecoration(
-              color: isSelected ? Colors.grey.withOpacity(0.15) : Colors.transparent,
-              borderRadius: BorderRadius.circular(12.0),
-            ),
-            child: IconTheme(
-              data: IconThemeData(color: color, size: 28.0),
-              child: iconWidget,
-            ),
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-            height: 1.1,
-            color: color,
-          ),
-        ),
-        ],
+              Transform.translate(
+                offset: const Offset(0, -3.0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4.0),
+                  decoration: BoxDecoration(
+                    color: isSelected ? Colors.grey.withOpacity(0.15) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12.0),
+                  ),
+                  child: IconTheme(
+                    data: IconThemeData(color: color, size: 28.0),
+                    child: iconWidget,
+                  ),
+                ),
+              ),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  height: 1.1,
+                  color: color,
+                ),
+              ),
+            ],
           ),
         ),
       ),
     ),
   );
 }
-
-

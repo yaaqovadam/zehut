@@ -9,6 +9,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watch_it/watch_it.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../common/common.dart';
 import '../app_state.dart';
@@ -39,9 +40,17 @@ class _ActionTabState extends State<ActionTab> {
 
   @override
   void dispose() {
-
     _mapController.dispose();
     super.dispose();
+  }
+
+  Future<void> _shareMap() async {
+    final bool isHe = context.locale.languageCode == 'he';
+    final String shareText = isHe
+        ? "מעל 600,000 נשקים בלתי חוקיים במגזר הערבי – ומהיהודים מונעים אקדח!\n\nהצטרפו למפת כיתות הכוננות הארצית של זהות, בדקו כמה אזרחים חמושים יש בשכונה שלכם ושימו נעץ:\nhttps://gamfeiglintzadak.co.il/kitat-konenut.html"
+        : "Over 600,000+ illegal weapons in the Arab sector — yet Jews are denied handguns!\n\nCheck Zehut's National Civilian Defense (Kitat Konenut) Map to see how many armed citizens are in your neighborhood and drop your pin:\nhttps://gamfeiglintzadak.co.il/kitat-konenut.html";
+
+    await Share.share(shareText);
   }
 
   Future<void> _initInitialMapPosition() async {
@@ -106,7 +115,7 @@ class _ActionTabState extends State<ActionTab> {
 
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      if (mounted)  Navigator.pop(context);
+      if (mounted) Navigator.pop(context);
       _showError("map_err_service".tr());
       return;
     }
@@ -115,14 +124,14 @@ class _ActionTabState extends State<ActionTab> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        if (mounted)   Navigator.pop(context);
+        if (mounted) Navigator.pop(context);
         _showError("map_err_permission".tr());
         return;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      if (mounted)  Navigator.pop(context);
+      if (mounted) Navigator.pop(context);
       _showError("map_err_blocked".tr());
       return;
     }
@@ -255,11 +264,10 @@ class _ActionTabState extends State<ActionTab> {
 
   Future<void> _showA2HSBottomSheet() async {
     if (di<AppState>().a2hsCount.value > 0) return;
-    if (!mounted) return; // Use the immortal state context check
+    if (!mounted) return;
 
-    // 1. SHOW THE BOTTOM SHEET FIRST
     showModalBottomSheet(
-      context: context, // Use the active state context
+      context: context,
       isScrollControlled: true,
       barrierColor: Colors.black.withOpacity(0.85),
       backgroundColor: const Color(0xFF0F172A),
@@ -268,103 +276,100 @@ class _ActionTabState extends State<ActionTab> {
       ),
       builder: (BuildContext modalContext) {
         return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-            child: Padding(
-              padding: const EdgeInsets.all(30.0),
-              child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.network(
-                    'icons/Icon-192.png',
-                    width: 72,
-                    height: 72,
-                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.shield, size: 72, color: Colors.blueAccent),
+          behavior: HitTestBehavior.opaque,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: Padding(
+            padding: const EdgeInsets.all(30.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      'icons/Icon-192.png',
+                      width: 72,
+                      height: 72,
+                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.shield, size: 72, color: Colors.blueAccent),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                "התנתק מהדפדפן. הישאר מחובר לרשת.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                "הוסף את 'זהות' למסך הבית שלך לגישה מהירה, מוצפנת וללא צנזורה - בדיוק כמו אפליקציה רגילה.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 15, height: 1.4),
-              ),
-              const SizedBox(height: 30),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                const SizedBox(height: 20),
+                const Text(
+                  "התנתק מהדפדפן. הישאר מחובר לרשת.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
                 ),
-                child: Column(
-                  children: const [
-                    Row(
-                      children: [
-                        Icon(Icons.ios_share, color: Colors.amber, size: 22),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            "1. לחץ על כפתור השיתוף (Share) בדפדפן",
-                            style: TextStyle(color: Colors.white, fontSize: 14),
+                const SizedBox(height: 12),
+                const Text(
+                  "הוסף את 'זהות' למסך הבית שלך לגישה מהירה, מוצפנת וללא צנזורה - בדיוק כמו אפליקציה רגילה.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey, fontSize: 15, height: 1.4),
+                ),
+                const SizedBox(height: 30),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    children: const [
+                      Row(
+                        children: [
+                          Icon(Icons.ios_share, color: Colors.amber, size: 22),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              "1. לחץ על כפתור השיתוף (Share) בדפדפן",
+                              style: TextStyle(color: Colors.white, fontSize: 14),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Icon(Icons.add_box_outlined, color: Colors.amber, size: 22),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            "2. בחר 'אל מסך הבית' (Add to Home Screen)",
-                            style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                        ],
+                      ),
+                      SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Icon(Icons.add_box_outlined, color: Colors.amber, size: 22),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              "2. בחר 'אל מסך הבית' (Add to Home Screen)",
+                              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 25),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                const SizedBox(height: 25),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).primaryColor,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                  child: const Text(
+                    "הבנתי, המשך לאפליקציה",
+                    style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  onPressed: () => Navigator.pop(modalContext),
                 ),
-                child: const Text(
-                  "הבנתי, המשך לאפליקציה",
-                  style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                onPressed: () => Navigator.pop(modalContext),
-              ),
-            ],
-          ),
+              ],
             ),
+          ),
         );
       },
     );
 
-    // 2. INCREMENT THE COUNTER AFTER THE SHEET IS RENDERED
     String? phone = di<AppState>().userPhone.value;
     if (phone != null && phone.isNotEmpty) {
-      di<AppState>().markA2HSPrompted(phone); // No await, runs in background
+      di<AppState>().markA2HSPrompted(phone);
     }
   }
-
-
 
   void _showTopToast(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -383,7 +388,7 @@ class _ActionTabState extends State<ActionTab> {
   }
 
   void _showError(String message) {
-    if (!mounted) return; // <-- Add this shield
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
   }
 
@@ -409,8 +414,7 @@ class _ActionTabState extends State<ActionTab> {
             ),
             children: [
               TileLayer(
-                // 👇 Changed dark_all to light_all
-   urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_3sj7_1_1520bde09244bd7c5bef2c8e',
+                urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_3sj7_1_1520bde09244bd7c5bef2c8e',
                 subdomains: const ['a', 'b', 'c', 'd'],
               ),
               StreamBuilder<QuerySnapshot>(
@@ -437,7 +441,7 @@ class _ActionTabState extends State<ActionTab> {
                           Icons.location_on,
                           size: isSelf ? 46 : 40,
                           color: isSelf
-                              ? const Color(0xFF103856) // Dark blue for the user's own pin
+                              ? const Color(0xFF103856)
                               : (isArmed ? Colors.lightBlue : Colors.redAccent),
                         ),
                       ),
@@ -455,7 +459,6 @@ class _ActionTabState extends State<ActionTab> {
                 child: Icon(
                   Icons.location_on,
                   size: 45,
-                  // 👇 Update this to match the new logic
                   color: selectedStatus == 'armed' ? Colors.lightBlue : Colors.redAccent,
                 ),
               ),
@@ -476,7 +479,11 @@ class _ActionTabState extends State<ActionTab> {
                     children: [
                       Text(
                         "map_title".tr(),
-                        style: TextStyle(fontSize: Localizations.localeOf(context).languageCode == 'en' ?21:24, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor),
+                        style: TextStyle(
+                          fontSize: Localizations.localeOf(context).languageCode == 'en' ? 21 : 24,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).primaryColor,
+                        ),
                       ),
                       const SizedBox(height: 5),
                       Text(
@@ -484,68 +491,88 @@ class _ActionTabState extends State<ActionTab> {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white70,
-                          fontSize: Localizations.localeOf(context).languageCode == 'en' ? 11: 14.0,
+                          fontSize: Localizations.localeOf(context).languageCode == 'en' ? 11 : 14.0,
                         ),
                       ),
                     ],
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(bottom:5, left: 20, right: 20),
+                  padding: const EdgeInsets.only(bottom: 5, left: 20, right: 20),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () async {
-                            LatLng currentCenter = _mapController.camera.center;
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                LatLng currentCenter = _mapController.camera.center;
 
-                            if (_isMapMoved) {
-                              // 1. If not logged in, wait for the global sheet to finish
-                              if (!di<AppState>().isLoggedIn.value) {
-                                await showUniversalAuthSheet(context);
-                              }
-
-                              // 2. The sheet closed. If they are now logged in, save the pin!
-                              if (di<AppState>().isLoggedIn.value) {
-                                String? globalUid = di<AppState>().userUid.value;
-                                if (globalUid != null) {
-                                  await _savePinToFirebase(currentCenter, globalUid);
-                                  if (mounted) {
-                                    Future.delayed(const Duration(milliseconds: 400), () {
-                                      if (mounted) _showA2HSBottomSheet();
-                                    });
+                                if (_isMapMoved) {
+                                  if (!di<AppState>().isLoggedIn.value) {
+                                    await showUniversalAuthSheet(context);
                                   }
+
+                                  if (di<AppState>().isLoggedIn.value) {
+                                    String? globalUid = di<AppState>().userUid.value;
+                                    if (globalUid != null) {
+                                      await _savePinToFirebase(currentCenter, globalUid);
+                                      if (mounted) {
+                                        Future.delayed(const Duration(milliseconds: 400), () {
+                                          if (mounted) _showA2HSBottomSheet();
+                                        });
+                                      }
+                                    }
+                                  }
+                                } else {
+                                  _showPinDialog(currentCenter);
                                 }
-                              }
-                            } else {
-                              _showPinDialog(currentCenter);
-                            }
-                          },
-                          icon: Icon(
-                            _isMapMoved ? Icons.save : (_hasSavedPin ? Icons.shield : Icons.add_moderator),
-                            color: Theme.of(context).primaryColor,
-                            size: 33,
-                          ),
-                          label: Text(
-                            _isMapMoved
-                                ? "map_btn_save".tr()
-                                : (_hasSavedPin ? "map_btn_edit_status".tr() : "map_btn_organize".tr()),
-                            style: TextStyle(
-                              color: _hasSavedPin ? Colors.lightBlue : Colors.white60,
-                              fontSize: context.locale.languageCode == 'he' ? 18 : 16,
-                              fontWeight: FontWeight.bold,
+                              },
+                              icon: Icon(
+                                _isMapMoved ? Icons.save : (_hasSavedPin ? Icons.shield : Icons.add_moderator),
+                                color: Theme.of(context).primaryColor,
+                                size: 33,
+                              ),
+                              label: Text(
+                                _isMapMoved
+                                    ? "map_btn_save".tr()
+                                    : (_hasSavedPin ? "map_btn_edit_status".tr() : "map_btn_organize".tr()),
+                                style: TextStyle(
+                                  color: _hasSavedPin ? Colors.lightBlue : Colors.white60,
+                                  fontSize: context.locale.languageCode == 'he' ? 18 : 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _hasSavedPin ? const Color(0xFF1f1a54) : Theme.of(context).primaryColor,
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                elevation: 10,
+                              ),
                             ),
                           ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _hasSavedPin ? const Color(0xFF1f1a54) : Theme.of(context).primaryColor,
-                            padding: const EdgeInsets.symmetric(vertical: 0),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                            elevation: 10,
+                          const SizedBox(width: 10),
+                          // 🎯 DEDICATED SHARE MAP BUTTON
+                          ElevatedButton(
+                            onPressed: _shareMap,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF1f1a54),
+                              padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                                side: BorderSide(color: Theme.of(context).primaryColor.withOpacity(0.6), width: 1.5),
+                              ),
+                              elevation: 10,
+                            ),
+                            child: Icon(
+                              Icons.share,
+                              color: Theme.of(context).primaryColor,
+                              size: 28,
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                       if (_isMapMoved) ...[
                         const SizedBox(height: 10),
@@ -560,10 +587,10 @@ class _ActionTabState extends State<ActionTab> {
                       ],
                     ],
                   ),
-                )
+                ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
