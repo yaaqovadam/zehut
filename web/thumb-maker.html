@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Zehut 1-Click Thumbnail Studio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@800;900&display=swap" rel="stylesheet">
+    <style>
+        body { background: #0f172a; color: white; font-family: 'Rubik', system-ui, sans-serif; display: flex; gap: 30px; padding: 30px; justify-content: center; align-items: flex-start; }
+        .controls { background: #1e293b; padding: 24px; border-radius: 16px; width: 380px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        h2 { margin: 0 0 8px 0; color: #38bdf8; }
+        label { font-size: 13px; color: #94a3b8; font-weight: bold; }
+        input[type="text"], select, input[type="range"] { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; font-size: 14px; box-sizing: border-box; }
+        .preset-row { display: flex; gap: 8px; }
+        .preset-btn { flex: 1; background: #103856; color: white; border: 1px solid #38bdf8; padding: 10px 6px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 12px; }
+        .preset-btn:hover { background: #0284c7; }
+        .download-btn { background: #25D366; color: black; border: none; padding: 16px; border-radius: 10px; font-size: 18px; font-weight: 900; cursor: pointer; margin-top: 10px; }
+        canvas { width: 540px; height: 540px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.7); border: 2px solid #334155; }
+    </style>
+</head>
+<body>
+
+<div class="controls">
+    <h2>🎯 Zehut Thumbnail Studio</h2>
+
+    <label>1. Quick Presets:</label>
+    <div class="preset-row">
+        <button class="preset-btn" onclick="applyPreset('waze')">Waze (600K+)</button>
+        <button class="preset-btn" onclick="applyPreset('intro')">Intro Video</button>
+        <button class="preset-btn" onclick="applyPreset('map')">Kitat Map</button>
+    </div>
+
+    <label>2. Choose Background Image:</label>
+    <input type="file" id="imgInput" accept="image/*">
+
+    <label>Image Vertical Offset (Pan Up/Down):</label>
+    <input type="range" id="imgOffsetY" min="-400" max="400" value="-80" oninput="draw()">
+
+    <label>Image Zoom:</label>
+    <input type="range" id="imgScale" min="100" max="250" value="115" oninput="draw()">
+
+    <label>Hebrew Line 1 (Yellow):</label>
+    <input type="text" id="heb1" dir="rtl" value="600,000+ נשקים בלתי חוקיים" oninput="draw()">
+
+    <label>Hebrew Line 2 (Yellow/White):</label>
+    <input type="text" id="heb2" dir="rtl" value="ומהיהודים מונעים אקדח!" oninput="draw()">
+
+    <label>English Line 1 (White/Yellow):</label>
+    <input type="text" id="eng1" value="600,000+ ILLEGAL WEAPONS" oninput="draw()">
+
+    <label>English Line 2:</label>
+    <input type="text" id="eng2" value="(Yet Jews Are Denied Handguns!)" oninput="draw()">
+
+    <label>Center Icon:</label>
+    <select id="iconType" onchange="draw()">
+        <option value="play_blue">Glossy Blue Play Button (Like Tunnel)</option>
+        <option value="play_dark">Translucent Dark Play Button (Like BBC)</option>
+        <option value="radar">Map Target / Location Pin (For Kitat Map)</option>
+        <option value="none">None</option>
+    </select>
+
+    <label>Output Filename:</label>
+    <input type="text" id="fileName" value="waze-is-not-to-blame.jpg">
+
+    <button class="download-btn" onclick="downloadJpg()">⬇️ DOWNLOAD JPG (1080x1080)</button>
+</div>
+
+<canvas id="canvas" width="1080" height="1080"></canvas>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let bgImg = null;
+
+    document.getElementById('imgInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => { bgImg = img; draw(); };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    function applyPreset(type) {
+      if (type === 'waze') {
+        document.getElementById('heb1').value = "600,000+ נשקים בלתי חוקיים";
+        document.getElementById('heb2').value = "ומהיהודים מונעים אקדח!";
+        document.getElementById('eng1').value = "600,000+ ILLEGAL WEAPONS";
+        document.getElementById('eng2').value = "(Yet Jews Are Denied Handguns!)";
+        document.getElementById('iconType').value = "play_blue";
+        document.getElementById('fileName').value = "waze-is-not-to-blame.jpg";
+      } else if (type === 'intro') {
+        document.getElementById('heb1').value = "הסיפור האמיתי: הם תמיד ידעו!";
+        document.getElementById('heb2').value = "(לא יעבדו עלינו שוב)";
+        document.getElementById('eng1').value = "THEY ALWAYS KNEW THE TRUTH";
+        document.getElementById('eng2').value = "(We Won't Get Fooled Again!)";
+        document.getElementById('iconType').value = "play_blue";
+        document.getElementById('fileName').value = "moshe-feiglin-intro-zehut.jpg";
+      } else if (type === 'map') {
+        document.getElementById('heb1').value = "מפת כיתות הכוננות הארצית";
+        document.getElementById('heb2').value = "(כמה חמושים יש בשכונה שלך?)";
+        document.getElementById('eng1').value = "CIVILIAN DEFENSE MAP";
+        document.getElementById('eng2').value = "(How Many Armed On Your Street?)";
+        document.getElementById('iconType').value = "radar";
+        document.getElementById('fileName').value = "kitat-konenut.jpg";
+      }
+      draw();
+    }
+
+    function drawTextWithShadow(text, x, y, font, fillStyle) {
+      ctx.font = font;
+      ctx.textAlign = 'center';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 4;
+      ctx.lineWidth = 8;
+      ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+      ctx.strokeText(text, x, y);
+      ctx.fillStyle = fillStyle;
+      ctx.fillText(text, x, y);
+      ctx.shadowBlur = 0;
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, 1080, 1080);
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, 1080, 1080);
+
+      // 1. Draw Top Image Area (Height: 700px)
+      if (bgImg) {
+        const scale = parseFloat(document.getElementById('imgScale').value) / 100;
+        const offsetY = parseFloat(document.getElementById('imgOffsetY').value);
+        const w = 1080 * scale;
+        const h = (bgImg.height / bgImg.width) * w;
+        const x = (1080 - w) / 2;
+        const y = offsetY;
+        ctx.drawImage(bgImg, x, y, w, h);
+      } else {
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(0, 0, 1080, 700);
+        ctx.fillStyle = '#64748b';
+        ctx.font = 'bold 34px Rubik, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('👆 Select an image on the left to preview', 540, 220);
+      }
+
+      // 2. Draw Center Play / Map Button at (540, 480)
+      const iconType = document.getElementById('iconType').value;
+      const cx = 540, cy = 460, r = 135;
+
+      if (iconType === 'play_blue') {
+        // Outer glow
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        const grad = ctx.createRadialGradient(cx - 30, cy - 40, 20, cx, cy, r);
+        grad.addColorStop(0, 'rgba(130, 177, 255, 0.92)');
+        grad.addColorStop(0.6, 'rgba(41, 121, 255, 0.88)');
+        grad.addColorStop(1, 'rgba(21, 101, 192, 0.95)');
+        ctx.fillStyle = grad;
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur = 25;
+        ctx.fill();
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+        ctx.stroke();
+
+        // Play Triangle
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#090d16';
+        ctx.beginPath();
+        ctx.moveTo(cx - 35, cy - 55);
+        ctx.lineTo(cx + 60, cy);
+        ctx.lineTo(cx - 35, cy + 55);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      } else if (iconType === 'play_dark') {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(16, 56, 86, 0.72)';
+        ctx.fill();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.beginPath();
+        ctx.moveTo(cx - 35, cy - 55);
+        ctx.lineTo(cx + 60, cy);
+        ctx.lineTo(cx - 35, cy + 55);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      } else if (iconType === 'radar') {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(16, 56, 86, 0.88)';
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur = 25;
+        ctx.fill();
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = '#38bdf8';
+        ctx.stroke();
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#ef4444';
+        ctx.font = '900 130px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('📍', cx, cy + 8);
+        ctx.restore();
+      }
+
+      // 3. Draw Solid Red Banner Across Bottom (Y: 680 to 1080)
+      ctx.fillStyle = '#dc0000';
+      ctx.fillRect(0, 680, 1080, 400);
+
+      // 4. Draw Hebrew & English Text
+      const heb1 = document.getElementById('heb1').value;
+      const heb2 = document.getElementById('heb2').value;
+      const eng1 = document.getElementById('eng1').value;
+      const eng2 = document.getElementById('eng2').value;
+
+      drawTextWithShadow(heb1, 540, 765, '900 68px Rubik, Arial, sans-serif', '#ffe600');
+      drawTextWithShadow(heb2, 540, 845, '800 58px Rubik, Arial, sans-serif', '#ffe600');
+      drawTextWithShadow(eng1, 540, 945, '900 58px Rubik, Arial, sans-serif', '#ffffff');
+      drawTextWithShadow(eng2, 540, 1025, '800 50px Rubik, Arial, sans-serif', '#ffffff');
+    }
+
+    function downloadJpg() {
+      const link = document.createElement('a');
+      link.download = document.getElementById('fileName').value || 'thumbnail.jpg';
+      link.href = canvas.toDataURL('image/jpeg', 0.92);
+      link.click();
+    }
+
+    document.fonts.ready.then(draw);
+    draw();
+</script>
+</body>
+</html>

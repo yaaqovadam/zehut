@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="he" translate="no">
+<head>
+    <base href="/">
+    <meta charset="UTF-8">
+    <meta name="google" content="notranslate">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+    <meta name="color-scheme" content="dark">
+    <meta name="theme-color" content="#010126" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#010126" media="(prefers-color-scheme: dark)">
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Zehut">
+
+    <title>מפת כיתות הכוננות הארצית: כמה חמושים יש בשכונה שלך?</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="favicon.png"/>
+
+    <link rel="apple-touch-icon" href="icons/Icon-192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="icons/Icon-512.png">
+
+    <meta itemprop="image" content="https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/kitat-konenut.jpg">
+
+    <!-- OPEN GRAPH / FACEBOOK / WHATSAPP TAGS -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://gamfeiglintzadak.co.il/kitat-konenut.html">
+    <meta property="og:title" content="מפת כיתות הכוננות הארצית: כמה חמושים יש בשכונה שלך?">
+    <meta property="og:description" content="מעל 600,000 נשקים בלתי חוקיים סביבנו. לחצו לבדיקת המפה האזורית והצטרפות להתארגנות אזרחית.">
+    <meta property="og:image" content="https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/kitat-konenut.jpg">
+    <meta property="og:image:secure_url" content="https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/kitat-konenut.jpg">
+    <meta property="og:image:type" content="image/jpeg">
+
+    <!-- TWITTER TAGS -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://gamfeiglintzadak.co.il/kitat-konenut.html">
+    <meta name="twitter:title" content="מפת כיתות הכוננות הארצית: כמה חמושים יש בשכונה שלך?">
+    <meta name="twitter:description" content="מעל 600,000 נשקים בלתי חוקיים סביבנו. לחצו לבדיקת המפה האזורית והצטרפות להתארגנות אזרחית.">
+    <meta name="twitter:image" content="https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/kitat-konenut.jpg">
+
+    <style>
+        body { background-color: #ffffff; margin: 0; }
+        flt-text-field, input, textarea { background-color: transparent !important; }
+        input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus { -webkit-box-shadow: 0 0 0 1000px #1E293B inset !important; -webkit-text-fill-color: white !important; }
+        .splash-container { display: flex; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; z-index: 2147483647; background-color: #ffffff; transition: opacity 0.5s ease-out; }
+        .splash-logo { width: 150px; height: auto; animation: splashPulse 1.2s infinite alternate; }
+        @keyframes splashPulse { 0% { transform: scale(1); } 100% { transform: scale(1.1); } }
+    </style>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+</head>
+<body>
+<div class="splash-container" id="splash-screen">
+    <img class="splash-logo" src="zehut-logo.png" alt="Loading Zehut..." />
+</div>
+
+<script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for(let registration of registrations) { registration.unregister(); }
+      });
+    }
+
+    window.addEventListener('flutter-first-frame', function() {
+      var splash = document.getElementById('splash-screen');
+      if (splash) {
+        splash.style.pointerEvents = 'none';
+        splash.style.opacity = '0';
+        setTimeout(() => splash.remove(), 500);
+      }
+    });
+
+    setTimeout(function() {
+      var script = document.createElement('script');
+      script.src = "flutter_bootstrap.js?v442";
+      script.async = true;
+      document.body.appendChild(script);
+    }, 100);
+</script>
+</body>
+</html>
