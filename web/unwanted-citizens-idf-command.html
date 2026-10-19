@@ -1,51 +1,233 @@
 <!DOCTYPE html>
-<html lang="he">
+<html lang="he" translate="no">
+<meta name="google" content="notranslate">
 <head>
+<!--  <script>-->
+<!--    // Automatically unregister any existing Service Workers for end users-->
+<!--    if ('serviceWorker' in navigator) {-->
+<!--      navigator.serviceWorker.getRegistrations().then(function(registrations) {-->
+<!--        for (let registration of registrations) {-->
+<!--          registration.unregister();-->
+<!--          console.log('Old Service Worker destroyed to force fresh update.');-->
+<!--        }-->
+<!--      });-->
+<!--    }-->
+<!--  </script>-->
+  <script>
+    window.deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      window.deferredPrompt = e;
+    });
+
+    window.triggerAppInstall = async function(lang = 'he') {
+      try {
+        const isEn = lang === 'en';
+
+        // 🎯 DYNAMIC TRANSLATIONS & BRANDING
+        const t = {
+          dir: isEn ? 'ltr' : 'rtl',
+          alreadyInstalled: isEn ? "The app is already installed!" : "האפליקציה כבר מותקנת!",
+
+          // The big bold ZEHUT injection
+          titleGeneral: isEn
+            ? `Install <span style="color: lightblue; font-size: 1.3em; font-weight: 900; letter-spacing: 1px;">ZEHUT</span>`
+            : `התקנת <span style="color: lightblue; font-size: 1.3em; font-weight: 900; letter-spacing: 1px;">ZEHUT</span>`,
+          titleMac: isEn
+            ? `Install <span style="color: lightblue; font-size: 1.3em; font-weight: 900; letter-spacing: 1px;">ZEHUT</span> (Mac)`
+            : `התקנת <span style="color: lightblue; font-size: 1.3em; font-weight: 900; letter-spacing: 1px;">ZEHUT</span> (Mac)`,
+
+          desc: isEn ? "Install the app for a faster and smoother experience!" : "התקינו את האפליקציה לחוויה מהירה וחלקה יותר!",
+          btnText: isEn ? "Install ZEHUT Now" : "התקן את ZEHUT עכשיו",
+
+          iosStep1: isEn ? "1. Tap the Share icon in your browser:" : "1. חפשו את סמל השיתוף בדפדפן:",
+          iosStep2: isEn ? "2. Scroll down and select:" : "2. בתפריט שיפתח, בחרו:",
+          iosAction: isEn ? "Add to Home Screen" : "הוסף למסך הבית",
+
+          macSafariStep1: isEn ? "1. Click the Share icon at the top (or in the <strong>File</strong> menu)." : "1. חפשו את סמל השיתוף למעלה (או בתפריט <strong>File</strong>).",
+          macSafariStep2: isEn ? "2. In the menu, select:" : "2. בתפריט שיפתח, בחרו:",
+          macSafariWarning: isEn ? '⚠️ Note: Blocked in "Private Browsing" mode.' : '⚠️ שימו לב: חסום במצב "גלישה בסתר".',
+
+          fallbackAlert: isEn ? "To install, open your browser menu and select 'Add to Home Screen' or 'Install'." : "כדי להתקין, פתחו את התפריט בדפדפן ובחרו 'הוסף למסך הבית' או Install",
+          manualInstallHint: isEn ? "Please click the install icon in your address bar." : "אנא לחצו על סמל ההתקנה בשורת הכתובת למעלה.",
+          closeText: isEn ? "(Tap anywhere outside to close)" : "(הקישו מסביב כדי לסגור)"
+        };
+
+        if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+            alert(t.alreadyInstalled);
+            return;
+        }
+
+        const ua = window.navigator.userAgent.toLowerCase();
+        const isIOS = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isMac = /macintosh|mac os x/.test(ua) && !isIOS;
+        const isAndroid = /android/.test(ua);
+        const isMacChrome = isMac && (ua.includes('chrome') || ua.includes('crios'));
+
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+          position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+          background: rgba(1, 1, 38, 0.95);
+          backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+          z-index: 2147483647; color: white; text-align: center; font-family: system-ui, sans-serif;
+          display: flex; flex-direction: column; justify-content: center; align-items: center;
+          margin: 0; padding: 20px; box-sizing: border-box; direction: ${t.dir};
+        `;
+
+        overlay.onclick = (e) => {
+          if (e.target === overlay) document.body.removeChild(overlay);
+        };
+
+        const style = document.createElement('style');
+        style.innerHTML = `@keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }`;
+        document.head.appendChild(style);
+
+        let innerCardHtml = '';
+        let isDirectInstall = false;
+
+        // 📱 ANDROID & 💻 MAC CHROME - BIG GREEN BUTTON!
+        if (isAndroid || isMacChrome) {
+          isDirectInstall = true;
+          let deviceTitle = isAndroid ? t.titleGeneral : t.titleMac;
+          innerCardHtml = `
+            <h2 style="margin:0 0 15px 0; font-size: 24px; font-weight: bold;">${deviceTitle}</h2>
+            <p style="font-size: 18px; margin: 0 0 25px 0; opacity: 0.9;">${t.desc}</p>
+            <button id="directInstallBtn" style="background: #25D366; color: white; border: none; padding: 15px 30px; font-size: 22px; font-weight: bold; border-radius: 12px; cursor: pointer; width: 100%; box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4);">
+              ${t.btnText}
+            </button>
+          `;
+        }
+        // 📱 iOS SAFARI / CHROME
+        else if (isIOS) {
+          const shareIconSVG = `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin: 15px 0; animation: pulse 2s infinite; color: lightblue;"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>`;
+          const addIconSVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 8px; vertical-align: middle;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>`;
+
+          innerCardHtml = `
+            <h2 style="margin:0 0 15px 0; font-size: 24px; font-weight: bold;">${t.titleGeneral}</h2>
+            <p style="font-size: 18px; margin: 0; opacity: 0.9;">${t.iosStep1}</p>
+            ${shareIconSVG}
+            <p style="font-size: 18px; margin: 0; opacity: 0.9;">${t.iosStep2}</p>
+            <div style="background: white; color: black; padding: 10px 16px; border-radius: 10px; margin-top: 15px; font-size: 18px; font-weight: bold; display: inline-flex; align-items: center; justify-content: center;">
+              ${isEn ? addIconSVG + t.iosAction : t.iosAction + addIconSVG}
+            </div>
+          `;
+        }
+        // 💻 MAC SAFARI
+        else if (isMac && !isMacChrome) {
+          const shareIconSVG = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin: 5px 0; animation: pulse 2s infinite; color: lightblue;"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>`;
+          innerCardHtml = `
+            <h2 style="margin:0 0 15px 0; font-size: 24px; font-weight: bold;">${t.titleMac}</h2>
+            <p style="font-size: 18px; margin: 0; opacity: 0.9;">${t.macSafariStep1}</p>
+            ${shareIconSVG}
+            <p style="font-size: 18px; margin: 10px 0 0 0; opacity: 0.9;">${t.macSafariStep2}</p>
+            <div style="background: white; color: black; padding: 10px 16px; border-radius: 10px; margin-top: 15px; font-size: 18px; font-weight: bold; display: inline-block; direction: ltr;">
+              Add to Dock...
+            </div>
+            <p style="font-size: 14px; margin-top: 25px; color: #ff6b6b; font-weight: bold; line-height: 1.4;">${t.macSafariWarning}</p>
+          `;
+        } else {
+          alert(t.fallbackAlert);
+          return;
+        }
+
+        // Draw the final layout
+        overlay.innerHTML = `
+          <div style="background: rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 30px 20px; max-width: 400px; width: 100%; border: 1px solid rgba(255,255,255,0.2);">
+            ${innerCardHtml}
+            <p style="font-size: 14px; margin-top: 25px; opacity: 0.5;">${t.closeText}</p>
+          </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        if (isDirectInstall) {
+          document.getElementById('directInstallBtn').onclick = async () => {
+            if (window.deferredPrompt) {
+              window.deferredPrompt.prompt();
+              const { outcome } = await window.deferredPrompt.userChoice;
+              window.deferredPrompt = null;
+            } else {
+              alert(t.manualInstallHint);
+            }
+            document.body.removeChild(overlay);
+          };
+        }
+      } catch (e) {
+        console.error("Install script error:", e);
+      }
+    };
+
+    // 🎯 Listen for the signal and extract the language from Flutter
+    window.addEventListener('showInstallPrompt', (e) => {
+      const lang = e.detail || 'he';
+      window.triggerAppInstall(lang);
+    });
+  </script>
+<!--  <script>-->
+<!--    // 💥 AGGRESSIVE CACHE BUSTER: Destroys old service workers and clears storage on load-->
+<!--    if ('serviceWorker' in navigator) {-->
+<!--      navigator.serviceWorker.getRegistrations().then(function(registrations) {-->
+<!--        for(let registration of registrations) {-->
+<!--          registration.unregister();-->
+<!--        }-->
+<!--      });-->
+<!--    }-->
+<!--    if ('caches' in window) {-->
+<!--      caches.keys().then(function(names) {-->
+<!--        for (let name of names) {-->
+<!--          caches.delete(name);-->
+<!--        }-->
+<!--      });-->
+<!--    }-->
+<!--  </script>-->
+
+
+
   <base href="/">
   <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-
-  <meta name="color-scheme" content="dark">
-  <meta name="theme-color" content="#010126" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#010126" media="(prefers-color-scheme: dark)">
-
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Zehut">
-
-  <title>כל עוד תודעת האזרחים הלא רצויים בארצם תמשיך לנהל את הפיקוד הצהלי</title>
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/png" href="favicon.png"/>
-
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
-  <link rel="apple-touch-icon" sizes="512x512" href="icons/Icon-512.png">
-
-  <!-- OPEN GRAPH / FACEBOOK / WHATSAPP TAGS -->
-  <meta property="og:type" content="website">
+  <meta name="color-scheme" content="light">
+  <title>אזרחים סוג ב׳ ופיקוד צה״ל — משה פייגלין חושף את האמת</title>
+  <meta name="video-id" content="unwanted-citizens-idf-command">
+  <meta id="seo-desc" name="description" content="משה פייגלין על היחס ללוחמים ולמתיישבים מול תפיסות הפיקוד הבכיר, ואיך משנים את הדיסקט בצמרת הביטחונית.">
+  <meta name="keywords" content="משה פייגלין צהל, לוחמים, מתיישבים, פיקוד בכיר, זהות, מחשבון מילואים, כיתת כוננות, תוכנית 8 הנקודות">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <link id="seo-canonical" rel="canonical" href="https://gamfeiglintzadak.co.il/unwanted-citizens-idf-command.html">
+  <meta itemprop="image" content="https://gamfeiglintzadak.co.il/unwanted-citizens-idf-command.jpg">
+  <meta property="og:type" content="video.other">
+  <meta property="og:site_name" content="משה פייגלין — זהות 2026">
+  <meta property="og:locale" content="he_IL">
   <meta property="og:url" content="https://gamfeiglintzadak.co.il/unwanted-citizens-idf-command.html">
-  <meta property="og:title" content="כל עוד תודעת האזרחים הלא רצויים בארצם תמשיך לנהל את הפיקוד הצהלי">
-  <meta property="og:description" content="צפו לפני הכל כדי להבין את התמונה המלאה.">
-  <meta property="og:image" itemprop="image" content="https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/unwanted-citizens-idf-command.jpg">
-  <meta property="og:image:secure_url" itemprop="image" content="https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/unwanted-citizens-idf-command.jpg">
+  <meta property="og:title" content="אזרחים סוג ב׳ ופיקוד צה״ל — משה פייגלין חושף את האמת">
+  <meta property="og:description" content="משה פייגלין על היחס ללוחמים ולמתיישבים מול תפיסות הפיקוד הבכיר, ואיך משנים את הדיסקט בצמרת הביטחונית.">
+  <meta property="og:image" itemprop="image" content="https://gamfeiglintzadak.co.il/unwanted-citizens-idf-command.jpg">
+  <meta property="og:image:secure_url" itemprop="image" content="https://gamfeiglintzadak.co.il/unwanted-citizens-idf-command.jpg">
   <meta property="og:image:type" content="image/jpeg">
-
-  <!-- TWITTER TAGS -->
+  <meta property="og:image:width" content="1080">
+  <meta property="og:image:height" content="1080">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:url" content="https://gamfeiglintzadak.co.il/unwanted-citizens-idf-command.html">
-  <meta name="twitter:title" content="כל עוד תודעת האזרחים הלא רצויים בארצם תמשיך לנהל את הפיקוד הצהלי">
-  <meta name="twitter:description" content="צפו לפני הכל כדי להבין את התמונה המלאה.">
-  <meta name="twitter:image" content="https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/unwanted-citizens-idf-command.jpg">
-
+  <meta name="twitter:title" content="אזרחים סוג ב׳ ופיקוד צה״ל — משה פייגלין חושף את האמת">
+  <meta name="twitter:description" content="משה פייגלין על היחס ללוחמים ולמתיישבים מול תפיסות הפיקוד הבכיר, ואיך משנים את הדיסקט בצמרת הביטחונית.">
+  <meta name="twitter:image" content="https://gamfeiglintzadak.co.il/unwanted-citizens-idf-command.jpg">
+  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="manifest" href="manifest.json">
+  <script type="application/ld+json">[{"@context": "https://schema.org", "@type": "VideoObject", "name": "אזרחים סוג ב׳ ופיקוד צה״ל — משה פייגלין חושף את האמת", "description": "משה פייגלין על היחס ללוחמים ולמתיישבים מול תפיסות הפיקוד הבכיר, ואיך משנים את הדיסקט בצמרת הביטחונית.", "thumbnailUrl": ["https://gamfeiglintzadak.co.il/unwanted-citizens-idf-command.jpg"], "uploadDate": "2026-10-01T08:00:00+03:00", "contentUrl": "https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/unwanted-citizens-idf-command.mp4", "embedUrl": "https://gamfeiglintzadak.co.il/unwanted-citizens-idf-command.html", "inLanguage": ["he", "en"], "publisher": {"@type": "Organization", "name": "מפלגת זהות — משה פייגלין", "url": "https://gamfeiglintzadak.co.il/"}}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "על מה מדבר משה פייגלין בסרטון: אזרחים סוג ב׳ ופיקוד צה״ל — משה פייגלין חושף את האמת?", "acceptedAnswer": {"@type": "Answer", "text": "משה פייגלין על היחס ללוחמים ולמתיישבים מול תפיסות הפיקוד הבכיר, ואיך משנים את הדיסקט בצמרת הביטחונית. לצפייה בסרטון המלא עם כתוביות בעברית ובאנגלית ולבדיקת זכאותכם במחשבון מגן המילואים ושאלון 8 הנקודות של זהות, היכנסו לעמוד."}}, {"@type": "Question", "name": "אילו כלים קיימים באפליקציית זהות של משה פייגלין?", "acceptedAnswer": {"@type": "Answer", "text": "האפליקציה כוללת את מחשבון מגן המילואים (עד 100% פטור ממס הכנסה ללוחמים), שאלון התאמה אינטראקטיבי לתוכנית 8 הנקודות, מפת כיתות כוננות והתחמשות אזרחית, והרשמה לחוגי בית עם משה פייגלין."}}]}]</script>
   <style>
+    #seo-prerender { position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden; }
     body { background-color: #ffffff; margin: 0; }
-        flt-text-field, input, textarea { background-color: transparent !important; color: white !important; }
+flt-text-field, input, textarea { background-color: transparent !important; }
         input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus { -webkit-box-shadow: 0 0 0 1000px #1E293B inset !important; -webkit-text-fill-color: white !important; }
 
         .splash-container { display: flex; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; z-index: 2147483647; background-color: #ffffff; transition: opacity 0.5s ease-out; }
         .splash-logo { width: 150px; height: auto; animation: splashPulse 1.2s infinite alternate; }
         @keyframes splashPulse { 0% { transform: scale(1); } 100% { transform: scale(1.1); } }
   </style>
+  <!-- Force browser to load Material Icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 </head>
 <body>
 <div class="splash-container" id="splash-screen">
@@ -73,10 +255,23 @@
   // 3. WEBKIT LOCK: Forces the browser to wait 100ms to paint the logo before freezing the processor with Flutter
   setTimeout(function() {
     var script = document.createElement('script');
-    script.src = "flutter_bootstrap.js?v380";
+    script.src = "flutter_bootstrap.js?v467";
     script.async = true;
     document.body.appendChild(script);
   }, 100);
 </script>
-</body>
+<main id="seo-prerender">
+    <article>
+      <h1>אזרחים סוג ב׳ ופיקוד צה״ל — משה פייגלין חושף את האמת</h1>
+      <p>משה פייגלין על היחס ללוחמים ולמתיישבים מול תפיסות הפיקוד הבכיר, ואיך משנים את הדיסקט בצמרת הביטחונית.</p>
+      <h2>כלים אינטראקטיביים באפליקציית זהות של משה פייגלין</h2>
+      <ul>
+        <li><a href="https://gamfeiglintzadak.co.il/miluim.html">מחשבון מגן המילואים — בדקו כמה אלפי ש״ח פטור ממס הכנסה מגיעים לכם (עד ₪108,000 בשנה)</a></li>
+        <li><a href="https://gamfeiglintzadak.co.il/eight-point-plan.html">שאלון תוכנית 8 הנקודות של משה פייגלין — בדקו את אחוז ההתאמה שלכם למצע זהות</a></li>
+        <li><a href="https://gamfeiglintzadak.co.il/kitat-konenut.html">מפת כיתות הכוננות הארצית והתחמשות אזרחית — הצטרפו להגנה על השכונה שלכם</a></li>
+        <li><a href="https://gamfeiglintzadak.co.il/parlor-meetings.html">חוגי בית ומפגשים עם משה פייגלין — הזמינו מפגש בעירכם</a></li>
+      </ul>
+      <nav aria-label="כל עמודי משה פייגלין ומפלגת זהות"><ul><li><a href="https://gamfeiglintzadak.co.il/different-future-for-israel.html">different future for israel</a></li><li><a href="https://gamfeiglintzadak.co.il/dont-vote-same-thing.html">dont vote same thing</a></li><li><a href="https://gamfeiglintzadak.co.il/eight-point-plan.html">eight point plan</a></li><li><a href="https://gamfeiglintzadak.co.il/enemy-burns-we-build.html">enemy burns we build</a></li><li><a href="https://gamfeiglintzadak.co.il/host-moshe-beit-shemesh.html">host moshe beit shemesh</a></li><li><a href="https://gamfeiglintzadak.co.il/host-moshe-national.html">host moshe national</a></li><li><a href="https://gamfeiglintzadak.co.il/i-believe-our-enemies.html">i believe our enemies</a></li><li><a href="https://gamfeiglintzadak.co.il/idf-combat-veterans-october-7-betrayals.html">idf combat veterans october 7 betrayals</a></li><li><a href="https://gamfeiglintzadak.co.il/if-conquest-gaza-extreme.html">if conquest gaza extreme</a></li><li><a href="https://gamfeiglintzadak.co.il/index.html">index</a></li><li><a href="https://gamfeiglintzadak.co.il/israel-dont-get-fooled-again.html">israel dont get fooled again</a></li><li><a href="https://gamfeiglintzadak.co.il/kitat-konenut.html">kitat konenut</a></li><li><a href="https://gamfeiglintzadak.co.il/messianic-not-a-dirty-word.html">messianic not a dirty word</a></li><li><a href="https://gamfeiglintzadak.co.il/miluim.html">miluim</a></li><li><a href="https://gamfeiglintzadak.co.il/moshe-feiglin-bbc-blitz-hypocrisy.html">moshe feiglin bbc blitz hypocrisy</a></li><li><a href="https://gamfeiglintzadak.co.il/moshe-feiglin-bbc-interview-exposed.html">moshe feiglin bbc interview exposed</a></li><li><a href="https://gamfeiglintzadak.co.il/moshe-feiglin-exposes-gadi-eisenkot.html">moshe feiglin exposes gadi eisenkot</a></li><li><a href="https://gamfeiglintzadak.co.il/moshe-feiglin-gadi-eisenkot-who-is-the-real-enemy.html">moshe feiglin gadi eisenkot who is the real enemy</a></li><li><a href="https://gamfeiglintzadak.co.il/moshe-feiglin-intro-zehut.html">moshe feiglin intro zehut</a></li><li><a href="https://gamfeiglintzadak.co.il/moshe-feiglin-the-burden-of-proof-is-on-you.html">moshe feiglin the burden of proof is on you</a></li><li><a href="https://gamfeiglintzadak.co.il/moshe-feiglin-trump-arab-states-strategy.html">moshe feiglin trump arab states strategy</a></li><li><a href="https://gamfeiglintzadak.co.il/my-voters-not-in-pocket-unite.html">my voters not in pocket unite</a></li><li><a href="https://gamfeiglintzadak.co.il/national-camp-must-unite.html">national camp must unite</a></li><li><a href="https://gamfeiglintzadak.co.il/parlor-meetings.html">parlor meetings</a></li><li><a href="https://gamfeiglintzadak.co.il/proper-country-law-order.html">proper country law order</a></li><li><a href="https://gamfeiglintzadak.co.il/see-you-sunday-expo.html">see you sunday expo</a></li><li><a href="https://gamfeiglintzadak.co.il/thirst-for-truth-growing.html">thirst for truth growing</a></li><li><a href="https://gamfeiglintzadak.co.il/unwanted-citizens-idf-command.html">unwanted citizens idf command</a></li><li><a href="https://gamfeiglintzadak.co.il/watch-share-subscribe.html">watch share subscribe</a></li><li><a href="https://gamfeiglintzadak.co.il/waze-is-not-to-blame.html">waze is not to blame</a></li><li><a href="https://gamfeiglintzadak.co.il/who-is-afraid-of-the-temple.html">who is afraid of the temple</a></li><li><a href="https://gamfeiglintzadak.co.il/why-so-much-ptsd-just-war.html">why so much ptsd just war</a></li></ul></nav>
+    </article>
+  </main></body>
 </html>

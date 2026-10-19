@@ -640,6 +640,34 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
           child: Icon(Icons.location_on, size: 155, color: Colors.redAccent),
         ),
       );
+    } else if (_iconType == 'shield') {
+      return Container(
+        width: 260,
+        height: 260,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: const Color(0xFF0A2239).withOpacity(0.92),
+          border: Border.all(color: Colors.lightBlueAccent, width: 6),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.6), blurRadius: 25, offset: const Offset(0, 8)),
+          ],
+        ),
+        child: Center(
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              const Icon(Icons.shield, size: 185, color: Color(0xFF1565C0)),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: CustomPaint(
+                  size: const Size(76, 76),
+                  painter: _MagenDavidPainter(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     }
     return const SizedBox.shrink();
   }
@@ -1128,6 +1156,10 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
                                     child: Text(isHe ? 'סמל מפה / נעץ מיקום' : 'Map Pin / Radar Badge'),
                                   ),
                                   DropdownMenuItem(
+                                    value: 'shield',
+                                    child: Text(isHe ? 'מגן מילואים (מגן דוד לבן)' : 'Reservist Shield (White Star of David)'),
+                                  ),
+                                  DropdownMenuItem(
                                     value: 'none',
                                     child: Text(isHe ? 'ללא סמל (None)' : 'No Center Icon (None)'),
                                   ),
@@ -1219,4 +1251,40 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
       ),
     );
   }
+}
+
+class _MagenDavidPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6.5
+      ..strokeJoin = StrokeJoin.miter;
+
+    final double cx = size.width / 2;
+    final double cy = size.height / 2;
+    final double r = size.width / 2;
+    const double sqrt3over2 = 0.8660254;
+
+    // Upward equilateral triangle
+    final Path up = Path()
+      ..moveTo(cx, cy - r)
+      ..lineTo(cx + r * sqrt3over2, cy + r * 0.5)
+      ..lineTo(cx - r * sqrt3over2, cy + r * 0.5)
+      ..close();
+
+    // Downward equilateral triangle
+    final Path down = Path()
+      ..moveTo(cx, cy + r)
+      ..lineTo(cx + r * sqrt3over2, cy - r * 0.5)
+      ..lineTo(cx - r * sqrt3over2, cy - r * 0.5)
+      ..close();
+
+    canvas.drawPath(up, paint);
+    canvas.drawPath(down, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

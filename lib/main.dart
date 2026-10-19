@@ -86,7 +86,7 @@ void main() async {
       SystemUiMode.immersiveSticky,
     );
   }
-  fixMosheDoc();
+  // fixMosheDoc();
   await EasyLocalization.ensureInitialized();
   await setupLocator(); // Initialize get_it / watch_it
 
