@@ -1,3 +1,6 @@
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -28,6 +31,32 @@ class MainShell extends WatchingStatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
+  bool _visitRecorded = false;
+  Future<void> _recordHumanVisit(String path) async {
+    if (_visitRecorded) return;
+    _visitRecorded = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String today = DateTime.now().toIso8601String().substring(0, 10);
+      final bool isNewEver = !(prefs.getBool('counted_ever_v1') ?? false);
+      final bool isNewToday = (prefs.getString('counted_day_v1') ?? '') != today;
+
+      if (isNewEver) await prefs.setBool('counted_ever_v1', true);
+      if (isNewToday) await prefs.setString('counted_day_v1', today);
+
+      final String cleanPage = path.isEmpty || path == '/' ? 'home' : path.replaceAll('/', '').replaceAll('.html', '');
+      await http.post(
+        Uri.parse('https://zehut-server.onrender.com/hitVisit'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'isNewEver': isNewEver,
+          'isNewToday': isNewToday,
+          'page': cleanPage,
+        }),
+      );
+    } catch (_) {}
+  }
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +71,7 @@ class _MainShellState extends State<MainShell> {
       String? tabParam = Uri.base.queryParameters['tab']?.toLowerCase();
       final String fullHref = html.window.location.href.toLowerCase();
       final String path = html.window.location.pathname?.toLowerCase() ?? '';
+          _recordHumanVisit(path);
       final String ogUrl = html.document
           .querySelector('meta[property="og:url"]')
           ?.attributes['content']

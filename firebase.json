@@ -62,7 +62,7 @@
         ]
       },
       {
-        "source": "**/flutter_bootstrap.js*",
+        "source": "**/@(flutter_bootstrap.js|main.dart.js)*",
         "headers": [
           {
             "key": "Cache-Control",
