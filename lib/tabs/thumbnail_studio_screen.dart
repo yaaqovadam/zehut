@@ -7,6 +7,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:zehut_app/star_of_david_house.dart';
 
 class ThumbnailStudioScreen extends StatefulWidget {
   final String? initialDocId;
@@ -30,11 +31,12 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
   double _imageOffsetY = 0.0;
   double _imageScale = 1.0;
   String _iconType = 'play_blue';
+  String _bannerTheme = 'red_yellow';
 
   String? _selectedDocId;
   bool _isCustomMode = false;
 
-  final TextEditingController _customFileNameController = TextEditingController(text: 'eight-point-plan.jpg');
+  final TextEditingController _customFileNameController = TextEditingController();
   final TextEditingController _aiPromptController = TextEditingController();
   final TextEditingController _heb1Controller = TextEditingController();
   final TextEditingController _heb2Controller = TextEditingController();
@@ -275,6 +277,18 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
   Future<void> _uploadToCloudflareR2() async {
     final bool isHe = context.locale.languageCode == 'he';
 
+    if (_isCustomMode && _customFileNameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isHe ? 'אנא הקלד שם קובץ בתיבה למעלה לפני ההעלאה!' : 'Please enter a custom filename at the top before uploading!',
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
     if (_selectedImageBytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -485,7 +499,9 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
             right: 0,
             bottom: 0,
             child: Container(
-              color: const Color(0xFFDC0000),
+              color: _bannerTheme == 'lightblue'
+                  ? Colors.lightBlue
+                  : (_bannerTheme == 'navy_lightblue' ? const Color(0xFF103856) : const Color(0xFFDC0000)),
               padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -493,14 +509,14 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
                   _buildBannerText(
                     _heb1Controller.text.isEmpty ? 'שורה 1 בעברית' : _heb1Controller.text,
                     fontSize: 64,
-                    color: const Color(0xFFFFE600),
+                    color: _bannerTheme == 'red_yellow' ? const Color(0xFFFFE600) : const Color(0xFF0288D1),
                     isRtl: true,
                   ),
                   if (_heb2Controller.text.isNotEmpty)
                     _buildBannerText(
                       _heb2Controller.text,
                       fontSize: 54,
-                      color: const Color(0xFFFFE600),
+                      color: _bannerTheme == 'red_yellow' ? const Color(0xFFFFE600) : const Color(0xFF0288D1),
                       isRtl: true,
                     ),
                   if (_eng1Controller.text.isNotEmpty)
@@ -554,10 +570,12 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
                 height: 1.1,
                 foreground: Paint()
                   ..style = PaintingStyle.stroke
-                  ..strokeWidth = 10
-                  ..color = Colors.black.withOpacity(0.9),
+                  ..strokeWidth = 13
+                  ..strokeJoin = StrokeJoin.round
+                  ..color = Colors.black,
                 shadows: const [
-                  Shadow(color: Colors.black, blurRadius: 14, offset: Offset(0, 5)),
+                  Shadow(color: Colors.black, blurRadius: 20, offset: Offset(0, 7)),
+                  Shadow(color: Colors.black, blurRadius: 8, offset: Offset(0, 3)),
                 ],
               ),
             ),
@@ -665,6 +683,26 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
                 ),
               ),
             ],
+          ),
+        ),
+      );
+    } else if (_iconType == 'house') {
+      return Container(
+        width: 260,
+        height: 260,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: const Color(0xFF0A2239).withOpacity(0.92),
+          border: Border.all(color: Colors.lightBlueAccent, width: 6),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.65), blurRadius: 25, offset: const Offset(0, 8)),
+          ],
+        ),
+        child: const Center(
+          child: MagenDavidHouseIcon(
+            size: 150,
+            houseColor: Colors.lightBlue,
+            starColor: Colors.white,
           ),
         ),
       );
@@ -1123,6 +1161,52 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
                           const SizedBox(height: 16),
 
                           Text(
+                            isHe ? 'ערכת צבעים (פס תחתון ופונטים)' : 'Banner & Font Color Theme',
+                            style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F172A),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFF334155)),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _bannerTheme,
+                                dropdownColor: const Color(0xFF103856),
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                                isExpanded: true,
+                                items: [
+                                  DropdownMenuItem(
+                                    value: 'red_yellow',
+                                    child: Text(isHe ? '🔴 קלאסי: פס אדום + עברית צהוב + אנגלית לבן' : '🔴 Classic: Red Bar + Yellow HE + White EN'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'lightblue',
+                                    child: Text(isHe ? '🩵 תכלת: פס תכלת + עברית תכלת (צל שחור) + אנגלית לבן' : '🩵 LightBlue: LightBlue Bar + LightBlue HE + White EN'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'navy_lightblue',
+                                    child: Text(isHe ? '🟦 כחול זהות כהה: פס כהה + עברית תכלת + אנגלית לבן' : '🟦 Zehut Navy Bar + LightBlue HE + White EN'),
+                                  ),
+                                ],
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setState(() {
+                                      _bannerTheme = val;
+                                      _isViewingExisting = false;
+                                      _isDirty = true;
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          Text(
                             isHe ? 'סמל מרכזי (כפתור הפעלה)' : 'Center Button Style',
                             style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
                           ),
@@ -1160,6 +1244,10 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
                                     child: Text(isHe ? 'מגן מילואים (מגן דוד לבן)' : 'Reservist Shield (White Star of David)'),
                                   ),
                                   DropdownMenuItem(
+                                    value: 'house',
+                                    child: Text(isHe ? '🏠 חוג בית (בית עם מגן דוד)' : '🏠 Parlor Meeting House (Star of David)'),
+                                  ),
+                                  DropdownMenuItem(
                                     value: 'none',
                                     child: Text(isHe ? 'ללא סמל (None)' : 'No Center Icon (None)'),
                                   ),
@@ -1180,12 +1268,12 @@ class _ThumbnailStudioScreenState extends State<ThumbnailStudioScreen> {
 
                           _buildInputField(
                             controller: _heb1Controller,
-                            label: isHe ? 'עברית - שורה 1 (צהוב)' : 'Hebrew Line 1 (Yellow)',
+                            label: isHe ? (_bannerTheme == 'red_yellow' ? 'עברית - שורה 1 (צהוב)' : 'עברית - שורה 1 (תכלת עם צל שחור)') : (_bannerTheme == 'red_yellow' ? 'Hebrew Line 1 (Yellow)' : 'Hebrew Line 1 (LightBlue + Black Shadow)'),
                             isRtl: true,
                           ),
                           _buildInputField(
                             controller: _heb2Controller,
-                            label: isHe ? 'עברית - שורה 2 (צהוב)' : 'Hebrew Line 2 (Yellow)',
+                            label: isHe ? (_bannerTheme == 'red_yellow' ? 'עברית - שורה 2 (צהוב)' : 'עברית - שורה 2 (תכלת עם צל שחור)') : (_bannerTheme == 'red_yellow' ? 'Hebrew Line 2 (Yellow)' : 'Hebrew Line 2 (LightBlue + Black Shadow)'),
                             isRtl: true,
                           ),
                           _buildInputField(

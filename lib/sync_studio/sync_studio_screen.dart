@@ -24,6 +24,8 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
 
   // Scrubber Engine State
   bool _isScrubbing = false;
+  int? _heldMarkerIndex;
+  int _holdStartTimeMs = 0;
   double _scrubPositionMs = 0.0;
   DateTime _lastScrubTime = DateTime.now();
   String _hebrewRawText = "";
@@ -584,14 +586,22 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
       sb.write(_scriptController.text.trim());
     }
 
+    final String finalScript = sb.toString().trim();
     setState(() {
-      _scriptController.text = sb.toString().trim();
       _isEditingText = true;
+      _scriptController.value = TextEditingValue(
+        text: finalScript,
+        selection: TextSelection.collapsed(offset: finalScript.length),
+      );
     });
 
-    // 🎯 Instantly pop the keyboard and hide the video
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (mounted) _scriptFocusNode.requestFocus();
+    Future.delayed(const Duration(milliseconds: 120), () {
+      if (mounted) {
+        _scriptFocusNode.requestFocus();
+        _scriptController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _scriptController.text.length),
+        );
+      }
     });
   }
 
@@ -918,17 +928,23 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                   child: Column(
                     children: [
                       Expanded(
-                        child: TextField(
-                          controller: _scriptController,
-                          focusNode: _scriptFocusNode, // 🎯 Tracks focus to hide video
-                          maxLines: null,
+                        child: Directionality(
                           textDirection: _activeLanguage == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
-                          textAlign: _activeLanguage == 'hebrew' ? TextAlign.right : TextAlign.left,
-                          style: const TextStyle(color: Colors.white, fontSize: 18, height: 1.4),
-                          decoration: InputDecoration(
-                            hintText: 'sync_script_hint'.tr(),
-                            hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-                            border: InputBorder.none,
+                          child: TextField(
+                            controller: _scriptController,
+                            focusNode: _scriptFocusNode,
+                            maxLines: null,
+                            minLines: null,
+                            expands: true,
+                            textAlignVertical: TextAlignVertical.top,
+                            textDirection: _activeLanguage == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+                            textAlign: _activeLanguage == 'hebrew' ? TextAlign.right : TextAlign.left,
+                            style: const TextStyle(color: Colors.white, fontSize: 18, height: 1.4),
+                            decoration: InputDecoration(
+                              hintText: 'sync_script_hint'.tr(),
+                              hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                              border: InputBorder.none,
+                            ),
                           ),
                         ),
                       ),
@@ -990,19 +1006,26 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
             // 🎯 STATE B EDITOR: ONLY RENDERS WHEN EDITING AN ALREADY LOCKED SCRIPT
             if (_isActiveScriptLocked && isTyping)
               Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  child: TextField(
-                    controller: _scriptController,
-                    focusNode: _scriptFocusNode,
-                    maxLines: null,
-                    textDirection: _activeLanguage == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
-                    textAlign: _activeLanguage == 'hebrew' ? TextAlign.right : TextAlign.left,
-                    style: const TextStyle(color: Colors.white, fontSize: 18, height: 1.4),
-                    decoration: InputDecoration(
-                      hintText: 'sync_edit_hint'.tr(),
-                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-                      border: InputBorder.none,
+                child: Directionality(
+                  textDirection: _activeLanguage == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    child: TextField(
+                      controller: _scriptController,
+                      focusNode: _scriptFocusNode,
+                      maxLines: null,
+                      minLines: null,
+                      expands: true,
+                      textAlignVertical: TextAlignVertical.top,
+                      textDirection: _activeLanguage == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+                      textAlign: TextAlign.start,
+                      style: const TextStyle(color: Colors.white, fontSize: 18, height: 1.4),
+                      decoration: InputDecoration(
+                        hintText: 'sync_edit_hint'.tr(),
+                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                        border: InputBorder.none,
+                      ),
                     ),
                   ),
                 ),
@@ -1146,43 +1169,79 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                           bool isBlueGroup = (groupNumber % 2 == 0);
                           Color lollipopColor = isBlueGroup ? Colors.blue : Colors.deepOrange;
 
+                          final bool isHeld = _heldMarkerIndex == index;
                           return Positioned(
-                            left: markerLeftOffset - 30,
+                            left: markerLeftOffset - 18,
                             top: 0,
                             bottom: 0,
-                            width: 60,
+                            width: 36,
                             child: Column(
                               children: [
-                                Container(width: 2, height: 60, color: Colors.white),
+                                // Pole is 100% pass-through so scrubbing the waveform NEVER touches a marker
+                                IgnorePointer(
+                                  child: Container(
+                                    width: 2,
+                                    height: 60,
+                                    color: isHeld ? Colors.yellowAccent : Colors.white,
+                                  ),
+                                ),
+                                // ONLY the 36x36 ball itself is touchable, and ONLY via Tap-and-Hold!
                                 GestureDetector(
                                   behavior: HitTestBehavior.opaque,
-                                  onPanUpdate: (details) {
-                                    if (details.delta.dy > 5) {
-                                      setState(() { _activeWords[index]['startMs'] = null; });
+                                  onLongPressStart: (details) {
+                                    if (_isScrubbing) return;
+                                    setState(() {
+                                      _heldMarkerIndex = index;
+                                      _holdStartTimeMs = markerTime;
+                                    });
+                                  },
+                                  onLongPressMoveUpdate: (details) {
+                                    if (_heldMarkerIndex != index || _isScrubbing) return;
+                                    if (details.localOffsetFromOrigin.dy > 42) {
+                                      setState(() {
+                                        _activeWords[index]['startMs'] = null;
+                                        _heldMarkerIndex = null;
+                                      });
                                       _silentAutoSave();
                                       return;
                                     }
-                                    final dragMillis = (details.delta.dx / pixelsPerMs).round();
-                                    int newMillis = markerTime + dragMillis;
-                                    int minBound = (index == 0) ? 0 : (_activeWords[index - 1]['startMs'] as int? ?? 0);
-                                    int maxBound = (index == _activeWords.length - 1 || _activeWords[index + 1]['startMs'] == null)
+                                    final int dragMillis = (details.localOffsetFromOrigin.dx / pixelsPerMs).round();
+                                    final int newMillis = _holdStartTimeMs + dragMillis;
+                                    final int minBound = (index == 0) ? 0 : (_activeWords[index - 1]['startMs'] as int? ?? 0);
+                                    final int maxBound = (index == _activeWords.length - 1 || _activeWords[index + 1]['startMs'] == null)
                                         ? _videoController.value.duration.inMilliseconds
                                         : (_activeWords[index + 1]['startMs'] as int);
 
-                                    setState(() => _activeWords[index]['startMs'] = newMillis.clamp(minBound, maxBound));
+                                    setState(() {
+                                      _activeWords[index]['startMs'] = newMillis.clamp(minBound, maxBound);
+                                    });
                                   },
-                                  onPanEnd: (details) => _silentAutoSave(),
-                                  child: Container(
-                                    width: 60,
-                                    height: 60,
-                                    color: Colors.transparent,
-                                    alignment: Alignment.topCenter,
+                                  onLongPressEnd: (details) {
+                                    if (_heldMarkerIndex == index) {
+                                      setState(() => _heldMarkerIndex = null);
+                                      _silentAutoSave();
+                                    }
+                                  },
+                                  onLongPressCancel: () {
+                                    if (_heldMarkerIndex == index) {
+                                      setState(() => _heldMarkerIndex = null);
+                                    }
+                                  },
+                                  child: Transform.scale(
+                                    scale: isHeld ? 1.22 : 1.0,
                                     child: Container(
                                       width: 36,
                                       height: 36,
-                                      decoration: BoxDecoration(color: lollipopColor, shape: BoxShape.circle),
+                                      decoration: BoxDecoration(
+                                        color: isHeld ? Colors.greenAccent.shade700 : lollipopColor,
+                                        shape: BoxShape.circle,
+                                        border: isHeld ? Border.all(color: Colors.yellowAccent, width: 2.5) : null,
+                                      ),
                                       child: Center(
-                                        child: Text('$numberInGroup', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                                        child: Text(
+                                          '$numberInGroup',
+                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                        ),
                                       ),
                                     ),
                                   ),

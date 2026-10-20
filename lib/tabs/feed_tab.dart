@@ -1341,7 +1341,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         ),
 
         // 🎯 3. DROP THE ARROW EXACTLY HERE:
-        if (widget.videoData['id'] == 'host-moshe-beit-shemesh-v2')
+        if (widget.videoData['id']?.toString().contains('host-moshe') == true)
           Positioned(
             bottom: 0, // Adjust to hover perfectly above your center icon
             left: 0,
@@ -1436,11 +1436,15 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                             _onUserInteraction();
                             final String title = widget.videoData['title']?.toString() ?? '';
                             final String shareTitle = title.isNotEmpty ? title : "app_name".tr();
-                            String rawUrl = widget.videoData['url']?.toString() ?? "";
-                            String htmlFileName = rawUrl.split('/').last.replaceAll('.mp4', '.html');
-                            String exactLink = "https://gamfeiglintzadak.co.il/$htmlFileName";
-                            final String contentToShare = "$shareTitle\n\n$exactLink";
-                            await Share.share(contentToShare);
+                            String rawUrl = (widget.videoData['url']?.toString() ?? "").split('?').first;
+                                String docId = widget.videoData['id']?.toString() ?? "";
+                                String htmlFileName = rawUrl.split('/').last.replaceAll('.mp4', '.html');
+                                if (htmlFileName.contains('host-moshe') || docId.contains('host-moshe')) {
+                                  htmlFileName = 'host-moshe-national.html';
+                                }
+                                String exactLink = "https://gamfeiglintzadak.co.il/$htmlFileName?v=50";
+                                final String contentToShare = "$shareTitle\n\n$exactLink";
+                                await Share.share(contentToShare);
                           },
                         ),
                       ],
