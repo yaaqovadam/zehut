@@ -165,22 +165,35 @@ class _HostMosheTabState extends State<HostMosheTab> {
   }
 
   Future<void> _shareHostMoshe({required bool includeCity}) async {
-    final bool isHe = context.locale.languageCode == 'he';
+    final bool isHe = context.locale.languageCode == "he";
     final String currentCity = (selectedCity ?? _cityController.text).trim();
     final bool useSpecificCity = includeCity && currentCity.isNotEmpty;
 
-    final String encodedCity = useSpecificCity ? Uri.encodeComponent(currentCity) : '';
+    final bool isSafed = useSpecificCity &&
+        (currentCity == "צפת" ||
+         currentCity.toLowerCase().contains("safed") ||
+         currentCity.toLowerCase().contains("zefat") ||
+         currentCity.toLowerCase().contains("tzfat"));
+
+    final String encodedCity = useSpecificCity ? Uri.encodeComponent(currentCity) : "";
     final String shareUrl = useSpecificCity
         ? "https://gamfeiglintzadak.co.il/parlor-meetings.html?city=$encodedCity&v=99"
         : "https://gamfeiglintzadak.co.il/parlor-meetings.html?v=99";
 
-    final String shareText = isHe
-        ? (useSpecificCity
-            ? "רוצים להביא את משה פייגלין לחוג בית ב$currentCity! רוצים לארח או להשתתף במפגש הקרוב ב$currentCity? הירשמו כאן:\n\n$shareUrl"
-            : "רוצים להביא את משה פייגלין לעיר שלכם! רוצים לארח חוג בית או להצטרף למפגש הקרוב באזורכם? הירשמו כאן:\n\n$shareUrl")
-        : (useSpecificCity
-            ? "We want to bring Moshe Feiglin for a parlor meeting in $currentCity! Want to host or attend in $currentCity? Sign up here:\n\n$shareUrl"
-            : "Want to bring Moshe Feiglin to your city? Sign up to host or attend a parlor meeting near you:\n\n$shareUrl");
+    String shareText;
+    if (isSafed) {
+      shareText = isHe
+          ? "🎙️ חוג בית בצפת לפני הבחירות — משה פייגלין (זהות)\n📅 תאריך: יום ראשון, 25 באוקטובר\n🕗 שעה: 20:00\n📍 מיקום: צפת (הכתובת המדויקת תישלח לנרשמים — חובה להירשם מראש)\n\nלפני שהולכים לקלפי, בואו לשמוע את החזון של משה פייגלין לביטחון, כלכלה וריבונות, ולשאול את השאלות הקשות פנים אל פנים.\n\nלהרשמה מראש (לאירוח או להשתתפות במפגש) לחצו כאן:\n$shareUrl"
+          : "🎙️ PRE-ELECTION PARLOR MEETING IN TZFAT — MOSHE FEIGLIN (Zehut)\n📅 Date: Sunday, October 25th\n🕗 Time: 8:00 PM (20:00)\n📍 Location: Tzfat (Exact address provided upon RSVP — Registration Required)\n\nBefore going to the ballot box, come hear Moshe Feiglin\x27s vision for Israel\x27s security, economy, and sovereignty, and ask your questions in person.\n\nRSVP & Host/Attendee Registration required at the link below:\n$shareUrl";
+    } else {
+      shareText = isHe
+          ? (useSpecificCity
+              ? "רוצים להביא את משה פייגלין לחוג בית ב$currentCity! רוצים לארח או להשתתף במפגש הקרוב ב$currentCity? הירשמו כאן:\n\n$shareUrl"
+              : "רוצים להביא את משה פייגלין לעיר שלכם! רוצים לארח חוג בית או להצטרף למפגש הקרוב באזורכם? הירשמו כאן:\n\n$shareUrl")
+          : (useSpecificCity
+              ? "We want to bring Moshe Feiglin for a parlor meeting in $currentCity! Want to host or attend in $currentCity? Sign up here:\n\n$shareUrl"
+              : "Want to bring Moshe Feiglin to your city? Sign up to host or attend a parlor meeting near you:\n\n$shareUrl");
+    }
 
     await Share.share(shareText);
   }

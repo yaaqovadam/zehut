@@ -240,7 +240,7 @@ class AppTranslations {
     "waitingForVerification": "ממתין לאימות...",
     "verify_whatsapp_btn": "אימות דרך WhatsApp",
     "verify_locked_btn": "נסה שוב בעוד 0:",
-    "verify_toast_locked": "יותר מדי ניסיונות. אנא המתן 60 שניות.",
+    "verify_toast_locked": "יותר מדי ניסיונות. אנא המתן 30 שניות.",
     "change_phone_btn": "הזנת מספר שגוי? שנה אותו",
     "map_verification_subtitle": "מטעמי פרטיות, אנא הזן את מספר הטלפון שלך לאימות.",
     "map_verify_action_btn": "המשך",

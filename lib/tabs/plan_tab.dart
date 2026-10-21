@@ -55,12 +55,12 @@ class _PlanTabState extends State<PlanTab> {
     String text;
     if (matchScore != null) {
       text = isHe
-          ? "קיבלתי $matchScore% התאמה לתוכנית 8 הנקודות של משה פייגלין (זהות)!\n\nבדקו מה אחוז ההתאמה שלכם תוך דקה:\nhttps://gamfeiglintzadak.co.il/eight-point-plan.html"
-          : "I just got a $matchScore% match with Moshe Feiglin's 8-Point Plan (Zehut)!\n\nTake the 60-second swipe test to see your score:\nhttps://gamfeiglintzadak.co.il/eight-point-plan.html";
+          ? "קיבלתי $matchScore% התאמה לתוכנית 8 הנקודות של משה פייגלין (זהות)!\n\nבדקו מה אחוז ההתאמה שלכם תוך דקה:\nhttps://gamfeiglintzadak.co.il/eight-point-plan.html?v=30"
+          : "I just got a $matchScore% match with Moshe Feiglin's 8-Point Plan (Zehut)!\n\nTake the 30-second swipe test to see your score:\nhttps://gamfeiglintzadak.co.il/eight-point-plan.html?v=30";
     } else {
       text = isHe
-          ? "מסכימים או מתנגדים? בדקו תוך דקה כמה אתם מתאימים לתוכנית 8 הנקודות של זהות:\n\nhttps://gamfeiglintzadak.co.il/eight-point-plan.html"
-          : "Agree or Disagree? Take the 60-second swipe test to see how much you align with Zehut's 8-Point Plan:\n\nhttps://gamfeiglintzadak.co.il/eight-point-plan.html";
+          ? "מסכימים או מתנגדים? בדקו תוך דקה כמה אתם מתאימים לתוכנית 8 הנקודות של זהות:\n\nhttps://gamfeiglintzadak.co.il/eight-point-plan.html?v=30"
+          : "Agree or Disagree? Take the 30-second swipe test to see how much you align with Zehut's 8-Point Plan:\n\nhttps://gamfeiglintzadak.co.il/eight-point-plan.html?v=30";
     }
     await Share.share(text);
   }

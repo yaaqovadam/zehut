@@ -216,6 +216,22 @@ class AppState {
   Future<void> bootCheck() async {
     initAdminListener();
     try {
+      // --- NEW: Generate Anonymous UID for all visitors immediately ---
+      User? fbUser = FirebaseAuth.instance.currentUser;
+      if (fbUser == null) {
+        try {
+          final cred = await FirebaseAuth.instance.signInAnonymously();
+          fbUser = cred.user;
+        } catch (e) {
+          debugPrint("Error generating anonymous session on boot: $e");
+        }
+      }
+      // Temporarily assign the anonymous UID so we can track them
+      if (fbUser != null) {
+        userUid.value = fbUser.uid;
+      }
+      // ----------------------------------------------------------------
+
       final uri = Uri.base;
       if (uri.queryParameters.containsKey('vid')) {
         targetVideo.value = uri.queryParameters['vid'];
@@ -234,7 +250,8 @@ class AppState {
 
           if (v == true || v == 'true') {
             userPhone.value = savedPhone;
-            userUid.value = data['uid'];
+            // This will overwrite the anonymous UID with their verified citizen UID if they are fully signed up
+            userUid.value = data['uid'] ?? fbUser?.uid;
             a2hsCount.value = data['a2hs_count'] ?? 0;
 
             if (data.containsKey('saved_clips') && data['saved_clips'] != null) {
