@@ -213,7 +213,7 @@
   <link rel="manifest" href="manifest.json">
   <script type="application/ld+json">[{"@context": "https://schema.org", "@type": "VideoObject", "name": "משה פייגלין בבית שמש — חוג בית ומפגש תושבים | זהות", "description": "צפו בקטע מתוך מפגש עם משה פייגלין בבית שמש והירשמו לאירוח או השתתפות בחוגי בית של מפלגת זהות ברחבי הארץ.", "thumbnailUrl": ["https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/host-moshe-clean.jpg"], "uploadDate": "2026-10-01T08:00:00+03:00", "contentUrl": "https://pub-142306085f2b48bda4045cd9efdd0d28.r2.dev/host-moshe-beit-shemesh.mp4", "embedUrl": "https://gamfeiglintzadak.co.il/host-moshe-beit-shemesh.html", "inLanguage": ["he", "en"], "publisher": {"@type": "Organization", "name": "מפלגת זהות — משה פייגלין", "url": "https://gamfeiglintzadak.co.il/"}}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "על מה מדבר משה פייגלין בסרטון: משה פייגלין בבית שמש — חוג בית ומפגש תושבים | זהות?", "acceptedAnswer": {"@type": "Answer", "text": "צפו בקטע מתוך מפגש עם משה פייגלין בבית שמש והירשמו לאירוח או השתתפות בחוגי בית של מפלגת זהות ברחבי הארץ. לצפייה בסרטון המלא עם כתוביות בעברית ובאנגלית ולבדיקת זכאותכם במחשבון מגן המילואים ושאלון 8 הנקודות של זהות, היכנסו לעמוד."}}, {"@type": "Question", "name": "אילו כלים קיימים באפליקציית זהות של משה פייגלין?", "acceptedAnswer": {"@type": "Answer", "text": "האפליקציה כוללת את מחשבון מגן המילואים (עד 100% פטור ממס הכנסה ללוחמים), שאלון התאמה אינטראקטיבי לתוכנית 8 הנקודות, מפת כיתות כוננות והתחמשות אזרחית, והרשמה לחוגי בית עם משה פייגלין."}}]}]</script>
   <style>
-    #seo-prerender { position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden; }
+    #seo-prerender { position: absolute; top: 0; left: 0; z-index: -1; opacity: 0.01; pointer-events: none; width: 100%; height: 100%; overflow: hidden; }
     body { background-color: #ffffff; margin: 0; }
 flt-text-field, input, textarea { background-color: transparent !important; }
         input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus { -webkit-box-shadow: 0 0 0 1000px #1E293B inset !important; -webkit-text-fill-color: white !important; }
@@ -253,7 +253,7 @@ flt-text-field, input, textarea { background-color: transparent !important; }
   // 3. WEBKIT LOCK: Forces the browser to wait 100ms to paint the logo before freezing the processor with Flutter
   setTimeout(function() {
     var script = document.createElement('script');
-    script.src = "flutter_bootstrap.js?v496";
+    script.src = "flutter_bootstrap.js?v497";
     script.async = true;
     document.body.appendChild(script);
   }, 100);
