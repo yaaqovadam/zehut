@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -13,6 +14,7 @@ import 'package:intl_phone_field/intl_phone_field.dart';
 import 'dart:ui' as ui;
 import 'dart:convert'; // 🎯 Added for Make.com Webhook payload
 import 'package:http/http.dart' as http; // ß🎯 Added for Make.com Webhook trigger
+
 
 class VerificationResult {
   final bool isAlreadyVerified;
@@ -46,8 +48,10 @@ class AppState {
   final ValueNotifier<bool> adminShowOffline = ValueNotifier<bool>(false);
   final ValueNotifier      <bool> adminForceShowSubs = ValueNotifier<bool>(false);
   // Global Admin State
+  final watchedVideosCount = ValueNotifier<int>(0);
   final isAdmin = ValueNotifier<bool>(false);
   StreamSubscription<DocumentSnapshot>? _adminSub;
+  final Set<String> _sessionViewedVideos = {};
 
   void setNavIndex(int index) => navIndex.value = index;
 
@@ -56,6 +60,29 @@ class AppState {
   Timer? _penaltyTimer;
   StreamSubscription<DocumentSnapshot>? _loginSub;
   final ValueNotifier<String?> targetVideo = ValueNotifier<String?>(null);
+
+
+
+  Future<bool> checkAndIncrementWatchedVideo(String videoId) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Prevent double-counting the exact same video ID back-to-back in local session if needed,
+    // or track total unique videos via a stored list/set.
+    List<String> viewedList = prefs.getStringList('session_viewed_videos') ?? [];
+    if (!viewedList.contains(videoId)) {
+      viewedList.add(videoId);
+      await prefs.setStringList('session_viewed_videos', viewedList);
+
+      int currentTotal = prefs.getInt('total_videos_watched_count') ?? 0;
+      currentTotal++;
+      await prefs.setInt('total_videos_watched_count', currentTotal);
+      watchedVideosCount.value = currentTotal;
+
+      return currentTotal >= 3;
+    }
+    return false;
+  }
+
 
   Future<String> executeWhatsAppLogin(String phone, String botNumber) async {
     if (phone.length < 9) throw Exception('Invalid phone number');
@@ -86,6 +113,13 @@ class AppState {
 
     // 3. Return the code instantly to update the UI
     return authCode;
+  }
+  Future<void> incrementWatchedVideos() async {
+    final prefs = await SharedPreferences.getInstance();
+    int current = prefs.getInt('total_videos_watched_count') ?? 0;
+    current++;
+    await prefs.setInt('total_videos_watched_count', current);
+    watchedVideosCount.value = current;
   }
   String generateSecureToken() {
     const chars = 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890';
@@ -217,6 +251,7 @@ class AppState {
     initAdminListener();
     try {
       // --- NEW: Generate Anonymous UID for all visitors immediately ---
+// Inside AppState.bootCheck()
       User? fbUser = FirebaseAuth.instance.currentUser;
       if (fbUser == null) {
         try {
@@ -226,7 +261,6 @@ class AppState {
           debugPrint("Error generating anonymous session on boot: $e");
         }
       }
-      // Temporarily assign the anonymous UID so we can track them
       if (fbUser != null) {
         userUid.value = fbUser.uid;
       }
@@ -324,6 +358,50 @@ class AppState {
       }
     }
   }
+
+
+  Future<bool> enableWebPushNotifications() async {
+    if (!kIsWeb) return false;
+    try {
+      final messaging = FirebaseMessaging.instance;
+      NotificationSettings settings = await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+        // 🚨 Replace with your actual Firebase Web VAPID key from Firebase Console -> Cloud Messaging
+        final token = await messaging.getToken(vapidKey: 'BAOxQBDVCLHGnGUZVVJ4telyInexgyFlUEiOl-_aOfncsBS5a981QL6f7G68ta6rSzBI85rDvIE0r_dXPaYCdms');
+        if (token != null) {
+          final currentUser = FirebaseAuth.instance.currentUser;
+          if (currentUser != null) {
+
+            String docId = currentUser.uid;
+            String? phoneVal = userPhone.value;
+            if (phoneVal != null && phoneVal.isNotEmpty) {
+              docId = phoneVal.replaceAll('+', '').trim();
+            }
+
+            await FirebaseFirestore.instance.collection('push_subscribers').doc(docId).set({
+              'fcm_token': token,
+              'incomingOK': true,
+              if (phoneVal != null) 'phone': phoneVal,
+              'auth_uid': currentUser.uid,
+              'updatedAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('push_prompted_v1', true);
+            return true;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Enable Web Push Error: $e");
+    }
+    return false;
+  }
 }
 
 Future<void> setupLocator() async {
@@ -383,6 +461,7 @@ class _UniversalAuthSheetState extends State<UniversalAuthSheet> {
         SnackBar(content: Text(message), backgroundColor: Colors.red));
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Theme(
@@ -439,7 +518,7 @@ class _UniversalAuthSheetState extends State<UniversalAuthSheet> {
                             String encodedMessage = Uri.encodeComponent(whatsappMessage);
                             final url = Uri.parse("https://wa.me/$burnerPhone?text=$encodedMessage");
                             if (await canLaunchUrl(url)) {
-                              await launchUrl(url, mode: LaunchMode.externalApplication);
+                              await launchUrl(url, webOnlyWindowName: '_self');
                             }
                           },
                         );

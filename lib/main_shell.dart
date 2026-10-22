@@ -213,6 +213,12 @@ class _MainShellState extends State<MainShell> {
             title: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {},
+              onLongPress: () {
+                final uid = di<AppState>().userUid.value ?? 'No UID Yet';
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Secret UID: $uid'), backgroundColor: Colors.blueGrey),
+                );
+              },
               child: Container(
                 color: Colors.transparent,
                 padding: EdgeInsets.only(

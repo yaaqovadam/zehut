@@ -21,6 +21,8 @@ class SyncStudioScreen extends StatefulWidget {
 class _SyncStudioScreenState extends State<SyncStudioScreen> {
   late VideoPlayerController _videoController;
   bool _isVideoInitialized = false;
+  bool _videoFitContain = true;
+  double _videoAlignY = 0.35;
 
   // Scrubber Engine State
   bool _isScrubbing = false;
@@ -358,11 +360,11 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
 
           if (data['syncedWords'] != null) {
             _hebrewWords = List<dynamic>.from(data['syncedWords']).map((w) => Map<String, dynamic>.from(w)).toList();
-            _isHebrewLocked = true;
+            _isHebrewLocked = _hebrewWords.isNotEmpty;
           }
           if (data['syncedWordsEN'] != null) {
             _englishWords = List<dynamic>.from(data['syncedWordsEN']).map((w) => Map<String, dynamic>.from(w)).toList();
-            _isEnglishLocked = true;
+            _isEnglishLocked = _englishWords.isNotEmpty;
           }
         });
       }
@@ -421,11 +423,11 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
       if (_activeLanguage == 'hebrew') {
         _hebrewWords = newWordsList;
         _hebrewRawText = newText;
-        _isHebrewLocked = true;
+        _isHebrewLocked = _hebrewWords.isNotEmpty;
       } else {
         _englishWords = newWordsList;
         _englishRawText = newText;
-        _isEnglishLocked = true;
+        _isEnglishLocked = _englishWords.isNotEmpty;
       }
     });
 
@@ -632,11 +634,11 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
       if (_activeLanguage == 'hebrew') {
         _hebrewWords = newWordsList;
         _hebrewRawText = newText;
-        _isHebrewLocked = true;
+        _isHebrewLocked = _hebrewWords.isNotEmpty;
       } else {
         _englishWords = newWordsList;
         _englishRawText = newText;
-        _isEnglishLocked = true;
+        _isEnglishLocked = _englishWords.isNotEmpty;
       }
 
       _isEditingText = false;
@@ -696,9 +698,12 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                 List<Map<String, dynamic>> activeTriplets = trackWords.sublist(startIndex, endIndex);
 
                 return Container(
+                  width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                     textDirection: lang == 'hebrew' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
                     children: List.generate(activeTriplets.length, (index) {
                       final wordData = activeTriplets[index];
@@ -748,6 +753,7 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                         ),
                       );
                     }),
+                    ),
                   ),
                 );
               }
@@ -890,28 +896,71 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // 🎯 Pushes everything down slightly so it's not crushed against the AppBar
-            if (!isTyping) const SizedBox(height: 16),
-
             // 🎯 HEBREW SUBS (STACKED ABOVE VIDEO)
             if (_showHebrew && _isHebrewLocked && !isTyping)
               _buildFlashcardRow(_hebrewWords, 'hebrew'),
 
-
-
-            // 🎯 ZONE 0: VIDEO PLAYER
+            // 🎯 ZONE 0: VIDEO PLAYER (Expands to fill all space so built-in subs are 100% visible!)
             if (_isVideoInitialized && !isTyping)
-              SizedBox(
-                height: MediaQuery.of(context).size.height * 0.35, // Adjusted height so everything fits perfectly
-                width: MediaQuery.of(context).size.width,
-                child: ClipRect(
-                  child: FittedBox(
-                    fit: BoxFit.cover,
-                    child: SizedBox(
-                      width: _videoController.value.size.width,
-                      height: _videoController.value.size.height,
-                      child: VideoPlayer(_videoController),
-                    ),
+              Expanded(
+                flex: _isActiveScriptLocked ? 1 : 0,
+                child: SizedBox(
+                  height: _isActiveScriptLocked ? null : MediaQuery.of(context).size.height * 0.42,
+                  width: MediaQuery.of(context).size.width,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      GestureDetector(
+                        onVerticalDragUpdate: _videoFitContain
+                            ? null
+                            : (details) {
+                                setState(() {
+                                  _videoAlignY = (_videoAlignY - details.delta.dy * 0.008).clamp(-1.0, 1.0);
+                                });
+                              },
+                        child: ClipRect(
+                          child: FittedBox(
+                            fit: _videoFitContain ? BoxFit.contain : BoxFit.cover,
+                            alignment: Alignment(0.0, _videoFitContain ? 0.0 : _videoAlignY),
+                            child: SizedBox(
+                              width: _videoController.value.size.width,
+                              height: _videoController.value.size.height,
+                              child: VideoPlayer(_videoController),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: InkWell(
+                          onTap: () => setState(() => _videoFitContain = !_videoFitContain),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.65),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.white38),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _videoFitContain ? Icons.fullscreen : Icons.fit_screen,
+                                  color: Colors.lightBlueAccent,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _videoFitContain ? 'Full Frame' : 'Zoom (Drag ↕)',
+                                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               )
@@ -1255,11 +1304,6 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                   );
                 },
               ),
-
-
-
-
-              const Spacer(),
               Container(
                 color: Colors.black,
                 padding: const EdgeInsets.only(top: 5, bottom: 10, left: 16, right: 16),
@@ -1277,31 +1321,27 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
                       color: const Color(0xFF103856),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       onSelected: (int size) {
-                        int targetIndex = _activeWords.indexWhere((w) => w['startMs'] == null);
-                        if (targetIndex == -1) targetIndex = _activeWords.length - 1;
+                        if (_activeWords.isEmpty) return;
+                        final int currentMillis = _isScrubbing
+                            ? _scrubPositionMs.round()
+                            : _videoController.value.position.inMilliseconds;
 
-                        List<int> starts = _getRowStarts(_activeWords);
-                        int groupToChange = 0;
+                        final List<int> starts = _getRowStarts(_activeWords);
+                        final int activeGroup = _calculateFocusGroup(currentMillis, _activeWords);
+                        if (activeGroup < 0 || activeGroup >= starts.length) return;
 
-                        for (int r = 0; r < starts.length; r++) {
-                          int rowEnd = (r + 1 < starts.length) ? starts[r + 1] : _activeWords.length;
-                          if (targetIndex >= starts[r] && targetIndex < rowEnd) {
-                            groupToChange = r;
-                            if (targetIndex == starts[r] && r > 0) {
-                              groupToChange = r - 1;
-                            }
-                            break;
-                          }
-                        }
-
-                        int startIndex = starts[groupToChange];
+                        final int startIndex = starts[activeGroup];
                         setState(() {
+                          // Clear stale groupSize flags inside this row's span so they don't split the row when shifting
+                          for (int i = startIndex; i < startIndex + size && i < _activeWords.length; i++) {
+                            _activeWords[i].remove('groupSize');
+                          }
                           _activeWords[startIndex]['groupSize'] = size;
                         });
                         _silentAutoSave();
                       },
                       itemBuilder: (BuildContext context) {
-                        return [3, 4, 5, 6].map((int size) {
+                        return [1, 2, 3, 4, 5, 6, 7].map((int size) {
                           return PopupMenuItem<int>(
                             value: size,
                             child: Text("$size Words", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
