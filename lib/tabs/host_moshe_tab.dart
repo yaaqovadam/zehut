@@ -21,6 +21,18 @@ class _HostMosheTabState extends State<HostMosheTab> {
   bool isSubmitting = false;
   String _hostIntent = 'attend';
   final TextEditingController _cityController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _timeController = TextEditingController();
+  final FocusNode _addressFocus = FocusNode();
+  final FocusNode _timeFocus = FocusNode();
+
+  String _defaultAddress(bool isHe) => isHe
+      ? "שוק התקווה תל אביב (סיור שטח ומפגש בוחרים)"
+      : "Shuk HaTikva, Tel Aviv (Street tour & voter meetup)";
+
+  String _defaultTime(bool isHe) => isHe
+      ? "יום חמישי, 22 באוקטובר 2026 | 10:00–12:00"
+      : "Thursday, Oct 22, 2026 | 10:00–12:00";
   String? _lastLangCode;
 
   final List<Map<String, String>> citiesData = [
@@ -124,6 +136,22 @@ class _HostMosheTabState extends State<HostMosheTab> {
         });
       }
     });
+    _addressFocus.addListener(() {
+      if (!_addressFocus.hasFocus && _addressController.text.trim().isEmpty && mounted) {
+        final bool isHe = context.locale.languageCode == 'he';
+        setState(() {
+          _addressController.text = _defaultAddress(isHe);
+        });
+      }
+    });
+    _timeFocus.addListener(() {
+      if (!_timeFocus.hasFocus && _timeController.text.trim().isEmpty && mounted) {
+        final bool isHe = context.locale.languageCode == 'he';
+        setState(() {
+          _timeController.text = _defaultTime(isHe);
+        });
+      }
+    });
   }
 
   @override
@@ -135,14 +163,22 @@ class _HostMosheTabState extends State<HostMosheTab> {
     if (_lastLangCode == null) {
       _lastLangCode = currentLang;
       final String? urlCity = Uri.base.queryParameters['city']?.trim();
+      final String? urlAddr = Uri.base.queryParameters['address']?.trim();
+      final String? urlTime = Uri.base.queryParameters['time']?.trim();
       if (urlCity != null && urlCity.isNotEmpty) {
         selectedCity = urlCity;
         _cityController.text = urlCity;
       } else {
-        final String defaultSafed = isHe ? "צפת" : "Zefat (Safed)";
-        selectedCity = defaultSafed;
-        _cityController.text = defaultSafed;
+        final String defaultTelAviv = isHe ? "תל אביב-יפו" : "Tel Aviv-Yafo";
+        selectedCity = defaultTelAviv;
+        _cityController.text = defaultTelAviv;
       }
+      _addressController.text = (urlAddr != null && urlAddr.isNotEmpty)
+          ? urlAddr
+          : (isHe ? "שוק התקווה תל אביב (סיור שטח ומפגש בוחרים)" : "Shuk HaTikva, Tel Aviv (Street tour & voter meetup)");
+      _timeController.text = (urlTime != null && urlTime.isNotEmpty)
+          ? urlTime
+          : (isHe ? "יום חמישי, 22 באוקטובר 2026 | 10:00–12:00" : "Thursday, Oct 22, 2026 | 10:00–12:00");
     } else if (_lastLangCode != currentLang) {
       _lastLangCode = currentLang;
       if (selectedCity != null && selectedCity!.isNotEmpty) {
@@ -155,12 +191,26 @@ class _HostMosheTabState extends State<HostMosheTab> {
           }
         }
       }
+      if (_addressController.text.contains("שוק התקווה") || _addressController.text.contains("Shuk HaTikva")) {
+        _addressController.text = isHe
+            ? "שוק התקווה תל אביב (סיור שטח ומפגש בוחרים)"
+            : "Shuk HaTikva, Tel Aviv (Street tour & voter meetup)";
+      }
+      if (_timeController.text.contains("22") && _timeController.text.contains("10:00")) {
+        _timeController.text = isHe
+            ? "יום חמישי, 22 באוקטובר 2026 | 10:00–12:00"
+            : "Thursday, Oct 22, 2026 | 10:00–12:00";
+      }
     }
   }
 
   @override
   void dispose() {
     _cityController.dispose();
+    _addressController.dispose();
+    _timeController.dispose();
+    _addressFocus.dispose();
+    _timeFocus.dispose();
     super.dispose();
   }
 
@@ -180,8 +230,22 @@ class _HostMosheTabState extends State<HostMosheTab> {
         ? "https://gamfeiglintzadak.co.il/parlor-meetings.html?city=$encodedCity&v=99"
         : "https://gamfeiglintzadak.co.il/parlor-meetings.html?v=99";
 
+    final String addrText = _addressController.text.trim();
+    final String timeText = _timeController.text.trim();
+    final bool hasEventDetails = addrText.isNotEmpty || timeText.isNotEmpty;
+
     String shareText;
-    if (isSafed) {
+    if (useSpecificCity && hasEventDetails) {
+      shareText = isHe
+          ? "🎙️ מפגש עם משה פייגלין (זהות) ב$currentCity\n"
+            "${timeText.isNotEmpty ? '📅 מועד: $timeText\n' : ''}"
+            "${addrText.isNotEmpty ? '📍 מיקום: $addrText\n' : ''}\n"
+            "להרשמה מראש (לאירוח או להשתתפות במפגש) לחצו כאן:\n$shareUrl"
+          : "🎙️ MEET MOSHE FEIGLIN (Zehut) IN ${currentCity.toUpperCase()}\n"
+            "${timeText.isNotEmpty ? '📅 Date & Time: $timeText\n' : ''}"
+            "${addrText.isNotEmpty ? '📍 Location: $addrText\n' : ''}\n"
+            "RSVP & Host/Attendee Registration at the link below:\n$shareUrl";
+    } else if (isSafed) {
       shareText = isHe
           ? "🎙️ חוג בית בצפת לפני הבחירות — משה פייגלין (זהות)\n📅 תאריך: יום ראשון, 25 באוקטובר\n🕗 שעה: 20:00\n📍 מיקום: צפת (הכתובת המדויקת תישלח לנרשמים — חובה להירשם מראש)\n\nלפני שהולכים לקלפי, בואו לשמוע את החזון של משה פייגלין לביטחון, כלכלה וריבונות, ולשאול את השאלות הקשות פנים אל פנים.\n\nלהרשמה מראש (לאירוח או להשתתפות במפגש) לחצו כאן:\n$shareUrl"
           : "🎙️ PRE-ELECTION PARLOR MEETING IN TZFAT — MOSHE FEIGLIN (Zehut)\n📅 Date: Sunday, October 25th\n🕗 Time: 8:00 PM (20:00)\n📍 Location: Tzfat (Exact address provided upon RSVP — Registration Required)\n\nBefore going to the ballot box, come hear Moshe Feiglin\x27s vision for Israel\x27s security, economy, and sovereignty, and ask your questions in person.\n\nRSVP & Host/Attendee Registration required at the link below:\n$shareUrl";
@@ -212,6 +276,8 @@ class _HostMosheTabState extends State<HostMosheTab> {
       await FirebaseFirestore.instance.collection('parlor_meetings').doc(safePhone).set({
         'phone': safePhone,
         'city': cityToSave,
+        'address': _addressController.text.trim(),
+        'event_time': _timeController.text.trim(),
         'intent': _hostIntent,
         'timestamp': FieldValue.serverTimestamp(),
         'status': 'pending'
@@ -457,6 +523,108 @@ class _HostMosheTabState extends State<HostMosheTab> {
                               ),
                             );
                           }).toList(),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    // 📍 ADDRESS / LOCATION FIELD
+                    ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _addressController,
+                      builder: (context, addrVal, _) {
+                        return TextField(
+                          controller: _addressController,
+                          focusNode: _addressFocus,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: isHebrew ? 'כתובת / מיקום המפגש' : 'Address / Meeting Location',
+                            floatingLabelBehavior: FloatingLabelBehavior.always,
+                            hintText: _defaultAddress(isHebrew),
+                            prefixIcon: const Icon(Icons.place, color: Color(0xFF103856)),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                addrVal.text.isNotEmpty ? Icons.clear : Icons.restore,
+                                size: 20,
+                                color: Colors.grey,
+                              ),
+                              tooltip: addrVal.text.isNotEmpty
+                                  ? (isHebrew ? 'נקה' : 'Clear')
+                                  : (isHebrew ? 'שחזר ברירת מחדל' : 'Restore default'),
+                              onPressed: () {
+                                if (addrVal.text.isNotEmpty) {
+                                  _addressController.clear();
+                                } else {
+                                  _addressController.text = _defaultAddress(isHebrew);
+                                }
+                              },
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey.shade400, width: 2),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Colors.lightBlue, width: 2.5),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    // 🕒 DATE & TIME FIELD
+                    ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _timeController,
+                      builder: (context, timeVal, _) {
+                        return TextField(
+                          controller: _timeController,
+                          focusNode: _timeFocus,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: isHebrew ? 'תאריך ושעה' : 'Date & Time',
+                            floatingLabelBehavior: FloatingLabelBehavior.always,
+                            hintText: _defaultTime(isHebrew),
+                            prefixIcon: const Icon(Icons.access_time_filled, color: Color(0xFF103856)),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                timeVal.text.isNotEmpty ? Icons.clear : Icons.restore,
+                                size: 20,
+                                color: Colors.grey,
+                              ),
+                              tooltip: timeVal.text.isNotEmpty
+                                  ? (isHebrew ? 'נקה' : 'Clear')
+                                  : (isHebrew ? 'שחזר ברירת מחדל' : 'Restore default'),
+                              onPressed: () {
+                                if (timeVal.text.isNotEmpty) {
+                                  _timeController.clear();
+                                } else {
+                                  _timeController.text = _defaultTime(isHebrew);
+                                }
+                              },
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey.shade400, width: 2),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Colors.lightBlue, width: 2.5),
+                            ),
+                          ),
                         );
                       },
                     ),

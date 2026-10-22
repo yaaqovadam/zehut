@@ -1,0 +1,18 @@
+import os
+
+html_dir = "web"
+
+for filename in os.listdir(html_dir):
+    if filename.endswith(".html"):
+        filepath = os.path.join(html_dir, filename)
+        with open(filepath, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        if ".again.jpg" in content:
+            new_content = content.replace(".again.jpg", "-again.jpg")
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(new_content)
+            print(f"Fixed: {filename}")
+
+print("Done!")
+
