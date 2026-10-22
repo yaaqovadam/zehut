@@ -1552,7 +1552,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                                 if (htmlFileName.contains('host-moshe') || docId.contains('host-moshe')) {
                                   htmlFileName = 'host-moshe-national.html';
                                 }
-                                String exactLink = "https://gamfeiglintzadak.co.il/$htmlFileName?v=77";
+                                String exactLink = "https://gamfeiglintzadak.co.il/$htmlFileName?v=200";
                                 final String contentToShare = "$shareTitle\n\n$exactLink";
                                 await Share.share(contentToShare);
                           },
