@@ -137,7 +137,9 @@ class _HostMosheTabState extends State<HostMosheTab> {
       }
     });
     _addressFocus.addListener(() {
-      if (!_addressFocus.hasFocus && _addressController.text.trim().isEmpty && mounted) {
+      final String curCity = (selectedCity ?? _cityController.text).toLowerCase();
+      final bool isSafed = curCity.contains("צפת") || curCity.contains("safed") || curCity.contains("zefat") || curCity.contains("tzfat");
+      if (!isSafed && !_addressFocus.hasFocus && _addressController.text.trim().isEmpty && mounted) {
         final bool isHe = context.locale.languageCode == 'he';
         setState(() {
           _addressController.text = _defaultAddress(isHe);
@@ -145,7 +147,9 @@ class _HostMosheTabState extends State<HostMosheTab> {
       }
     });
     _timeFocus.addListener(() {
-      if (!_timeFocus.hasFocus && _timeController.text.trim().isEmpty && mounted) {
+      final String curCity = (selectedCity ?? _cityController.text).toLowerCase();
+      final bool isSafed = curCity.contains("צפת") || curCity.contains("safed") || curCity.contains("zefat") || curCity.contains("tzfat");
+      if (!isSafed && !_timeFocus.hasFocus && _timeController.text.trim().isEmpty && mounted) {
         final bool isHe = context.locale.languageCode == 'he';
         setState(() {
           _timeController.text = _defaultTime(isHe);
@@ -169,16 +173,18 @@ class _HostMosheTabState extends State<HostMosheTab> {
         selectedCity = urlCity;
         _cityController.text = urlCity;
       } else {
-        final String defaultTelAviv = isHe ? "תל אביב-יפו" : "Tel Aviv-Yafo";
-        selectedCity = defaultTelAviv;
-        _cityController.text = defaultTelAviv;
+        final String defaultSafed = isHe ? "צפת" : "Zefat (Safed)";
+        selectedCity = defaultSafed;
+        _cityController.text = defaultSafed;
       }
+      final String activeCity = (selectedCity ?? "").toLowerCase();
+      final bool isSafedCity = activeCity.contains("צפת") || activeCity.contains("safed") || activeCity.contains("zefat") || activeCity.contains("tzfat");
       _addressController.text = (urlAddr != null && urlAddr.isNotEmpty)
           ? urlAddr
-          : (isHe ? "שוק התקווה תל אביב (סיור שטח ומפגש בוחרים)" : "Shuk HaTikva, Tel Aviv (Street tour & voter meetup)");
+          : (isSafedCity ? "" : _defaultAddress(isHe));
       _timeController.text = (urlTime != null && urlTime.isNotEmpty)
           ? urlTime
-          : (isHe ? "יום חמישי, 22 באוקטובר 2026 | 10:00–12:00" : "Thursday, Oct 22, 2026 | 10:00–12:00");
+          : (isSafedCity ? "" : _defaultTime(isHe));
     } else if (_lastLangCode != currentLang) {
       _lastLangCode = currentLang;
       if (selectedCity != null && selectedCity!.isNotEmpty) {
