@@ -165,7 +165,7 @@ class AppTranslations {
     "host_city_hint": "Select your city",
     "host_submit": "Bring Moshe to My City",
     "host_success": "Request received! We will contact you soon to coordinate.",
-    "host_verify_btn": "Verify Account to Host",
+    "host_verify_btn": "Verify to Attend or Host",
         "host_intent_host": "I can host Moshe at my home",
   "host_intent_attend": "I'd be happy to attend in {}"
   };
@@ -337,7 +337,7 @@ class AppTranslations {
     "host_city_hint": "בחר עיר",
     "host_submit": "הבא את משה לעיר שלי!",
     "host_success": "הבקשה התקבלה! ניצור קשר בקרוב לתיאום.",
-    "host_verify_btn": "אמת חשבון כדי לארח",
+    "host_verify_btn": "אמת חשבון להשתתפות או אירוח",
         "host_intent_host": "אני יכול/ה לארח את משה אצלי בבית",
 "host_intent_attend": "אשמח להשתתף בחוג בית ב{}"
 
