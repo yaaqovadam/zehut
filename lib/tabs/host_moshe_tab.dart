@@ -26,6 +26,11 @@ class _HostMosheTabState extends State<HostMosheTab> {
   final FocusNode _addressFocus = FocusNode();
   final FocusNode _timeFocus = FocusNode();
 
+  bool _isSafedCity([String? city]) {
+    final String c = (city ?? selectedCity ?? _cityController.text).toLowerCase();
+    return c.contains("צפת") || c.contains("safed") || c.contains("zefat") || c.contains("tzfat");
+  }
+
   String _defaultAddress(bool isHe) => isHe
       ? "שוק התקווה תל אביב (סיור שטח ומפגש בוחרים)"
       : "Shuk HaTikva, Tel Aviv (Street tour & voter meetup)";
@@ -133,6 +138,10 @@ class _HostMosheTabState extends State<HostMosheTab> {
       if (text != selectedCity) {
         setState(() {
           selectedCity = text;
+          if (_isSafedCity(text)) {
+            _addressController.clear();
+            _timeController.clear();
+          }
         });
       }
     });
@@ -535,7 +544,7 @@ class _HostMosheTabState extends State<HostMosheTab> {
                     const SizedBox(height: 12),
 
                     // 📍 ADDRESS / LOCATION FIELD
-                    ValueListenableBuilder<TextEditingValue>(
+                    if (!_isSafedCity()) ValueListenableBuilder<TextEditingValue>(
                       valueListenable: _addressController,
                       builder: (context, addrVal, _) {
                         return TextField(
@@ -586,7 +595,7 @@ class _HostMosheTabState extends State<HostMosheTab> {
                     const SizedBox(height: 12),
 
                     // 🕒 DATE & TIME FIELD
-                    ValueListenableBuilder<TextEditingValue>(
+                    if (!_isSafedCity()) ValueListenableBuilder<TextEditingValue>(
                       valueListenable: _timeController,
                       builder: (context, timeVal, _) {
                         return TextField(
