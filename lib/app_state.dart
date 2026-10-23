@@ -520,7 +520,7 @@ class _UniversalAuthSheetState extends State<UniversalAuthSheet> {
                             final url = Uri.parse(isMobile
                                 ? "https://wa.me/$burnerPhone?text=$encodedMessage"
                                 : "whatsapp://send?phone=$burnerPhone&text=$encodedMessage");
-                            await launchUrl(url, webOnlyWindowName: '_self');
+                            launchUrl(url, mode: LaunchMode.externalApplication, webOnlyWindowName: '_self');
                           },
                         );
                       },
