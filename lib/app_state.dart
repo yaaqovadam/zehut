@@ -516,10 +516,11 @@ class _UniversalAuthSheetState extends State<UniversalAuthSheet> {
                             String instruction = "whatsappVerifyMsg".tr();
                             String whatsappMessage = "$_authCode $instruction";
                             String encodedMessage = Uri.encodeComponent(whatsappMessage);
-                            final url = Uri.parse("whatsapp://send?phone=$burnerPhone&text=$encodedMessage");
-                            if (await canLaunchUrl(url)) {
-                              await launchUrl(url, webOnlyWindowName: '_self');
-                            }
+                            final bool isMobile = defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.android;
+                            final url = Uri.parse(isMobile
+                                ? "https://wa.me/$burnerPhone?text=$encodedMessage"
+                                : "whatsapp://send?phone=$burnerPhone&text=$encodedMessage");
+                            await launchUrl(url, webOnlyWindowName: '_self');
                           },
                         );
                       },
