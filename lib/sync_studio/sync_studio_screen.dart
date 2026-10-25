@@ -537,18 +537,79 @@ class _SyncStudioScreenState extends State<SyncStudioScreen> {
       final data = jsonDecode(response.body);
 
       if (data['success'] == true && data['data'] != null) {
-        final he = data['data']['he'] ?? '';
-        final en = data['data']['en'] ?? '';
+        final payload = data['data'];
+        String he = (payload['he'] ?? '').toString().trim();
+        String en = (payload['en'] ?? '').toString().trim();
+        final List<dynamic> blocks = (payload['blocks'] is List) ? payload['blocks'] : [];
+
+        List<Map<String, dynamic>> autoHeWords = [];
+        List<Map<String, dynamic>> autoEnWords = [];
+        List<String> heLines = [];
+        List<String> enLines = [];
+
+        if (blocks.isNotEmpty) {
+          int lastHeMs = 0;
+          int lastEnMs = 0;
+          for (final rawBlock in blocks) {
+            if (rawBlock is! Map) continue;
+            final double bStart = (rawBlock['start'] as num?)?.toDouble() ?? (lastHeMs / 1000.0);
+            final double bEnd = (rawBlock['end'] as num?)?.toDouble() ?? (bStart + 2.0);
+            final int startMs = (bStart * 1000).round();
+            final int spanMs = ((bEnd * 1000).round() > startMs) ? ((bEnd * 1000).round() - startMs) : 1200;
+            final List<dynamic> bWords = (rawBlock['words'] is List) ? rawBlock['words'] : [];
+
+            List<String> heTok = (rawBlock['he'] ?? '').toString().trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+            List<String> enTok = (rawBlock['en'] ?? '').toString().trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+
+            int idx = 0;
+            final int maxL = heTok.length > enTok.length ? heTok.length : enTok.length;
+            while (idx < maxL) {
+              final int heC = (heTok.length - idx) > 6 ? 6 : ((heTok.length - idx) > 0 ? (heTok.length - idx) : 0);
+              final int enC = (enTok.length - idx) > 6 ? 6 : ((enTok.length - idx) > 0 ? (enTok.length - idx) : 0);
+              if (heC > 0) {
+                heLines.add(heTok.sublist(idx, idx + heC).join(' '));
+                for (int k = 0; k < heC; k++) {
+                  final int wIdx = idx + k;
+                  int ms = (wIdx < bWords.length && bWords[wIdx] is Map && bWords[wIdx]['start'] != null)
+                      ? ((bWords[wIdx]['start'] as num).toDouble() * 1000).round()
+                      : startMs + ((spanMs * wIdx) ~/ heTok.length);
+                  if (ms < lastHeMs) ms = lastHeMs;
+                  lastHeMs = ms;
+                  autoHeWords.add({'word': heTok[wIdx], 'startMs': ms, if (k == 0) 'groupSize': heC});
+                }
+              }
+              if (enC > 0) {
+                enLines.add(enTok.sublist(idx, idx + enC).join(' '));
+                for (int k = 0; k < enC; k++) {
+                  final int wIdx = idx + k;
+                  int ms = (wIdx < bWords.length && bWords[wIdx] is Map && bWords[wIdx]['start'] != null)
+                      ? ((bWords[wIdx]['start'] as num).toDouble() * 1000).round()
+                      : startMs + ((spanMs * wIdx) ~/ enTok.length);
+                  if (ms < lastEnMs) ms = lastEnMs;
+                  lastEnMs = ms;
+                  autoEnWords.add({'word': enTok[wIdx], 'startMs': ms, if (k == 0) 'groupSize': enC});
+                }
+              }
+              idx += 6;
+            }
+          }
+          if (heLines.isNotEmpty) he = heLines.join('\n');
+          if (enLines.isNotEmpty) en = enLines.join('\n');
+        }
 
         setState(() {
           _hebrewRawText = he;
           _englishRawText = en;
           _scriptController.text = _activeLanguage == 'hebrew' ? he : en;
+          if (autoHeWords.isNotEmpty) { _hebrewWords = autoHeWords; _isHebrewLocked = true; }
+          if (autoEnWords.isNotEmpty) { _englishWords = autoEnWords; _isEnglishLocked = true; }
         });
 
         await FirebaseFirestore.instance.collection('feeds').doc(widget.docId).set({
           'hebrewScript': he,
           'englishScript': en,
+          if (autoHeWords.isNotEmpty) 'syncedWords': autoHeWords,
+          if (autoEnWords.isNotEmpty) 'syncedWordsEN': autoEnWords,
         }, SetOptions(merge: true));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${'sync_backend_err'.tr()}${data['error']}')));
