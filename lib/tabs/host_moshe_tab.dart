@@ -36,8 +36,8 @@ class _HostMosheTabState extends State<HostMosheTab> {
       : "Shuk HaTikva, Tel Aviv (Street tour & voter meetup)";
 
   String _defaultTime(bool isHe) => isHe
-      ? "יום חמישי, 22 באוקטובר 2026 | 10:00–12:00"
-      : "Thursday, Oct 22, 2026 | 10:00–12:00";
+      ? "יום שני, 26 באוקטובר 2026 | 20:00"
+      : "Monday, Oct 26, 2026 | 20:00";
   String? _lastLangCode;
 
   final List<Map<String, String>> citiesData = [
@@ -213,8 +213,8 @@ class _HostMosheTabState extends State<HostMosheTab> {
       }
       if (_timeController.text.contains("22") && _timeController.text.contains("10:00")) {
         _timeController.text = isHe
-            ? "יום חמישי, 22 באוקטובר 2026 | 10:00–12:00"
-            : "Thursday, Oct 22, 2026 | 10:00–12:00";
+            ? "יום שני, 26 באוקטובר 2026 | 20:00"
+            : "Monday, Oct 26, 2026 | 20:00";
       }
     }
   }
@@ -242,8 +242,8 @@ class _HostMosheTabState extends State<HostMosheTab> {
 
     final String encodedCity = useSpecificCity ? Uri.encodeComponent(currentCity) : "";
     final String shareUrl = useSpecificCity
-        ? "https://gamfeiglintzadak.co.il/parlor-meetings.html?city=$encodedCity&v=99"
-        : "https://gamfeiglintzadak.co.il/parlor-meetings.html?v=99";
+        ? "https://gamfeiglintzadak.co.il/parlor-meetings.html?city=$encodedCity&v=202"
+        : "https://gamfeiglintzadak.co.il/parlor-meetings.html?v=202";
 
     final String addrText = _addressController.text.trim();
     final String timeText = _timeController.text.trim();
@@ -262,16 +262,16 @@ class _HostMosheTabState extends State<HostMosheTab> {
             "RSVP & Host/Attendee Registration at the link below:\n$shareUrl";
     } else if (isSafed) {
       shareText = isHe
-          ? "🎙️ חוג בית בצפת לפני הבחירות — משה פייגלין (זהות)\n📅 תאריך: יום ראשון, 25 באוקטובר\n🕗 שעה: 20:00\n📍 מיקום: צפת (הכתובת המדויקת תישלח לנרשמים — חובה להירשם מראש)\n\nלפני שהולכים לקלפי, בואו לשמוע את החזון של משה פייגלין לביטחון, כלכלה וריבונות, ולשאול את השאלות הקשות פנים אל פנים.\n\nלהרשמה מראש (לאירוח או להשתתפות במפגש) לחצו כאן:\n$shareUrl"
-          : "🎙️ PRE-ELECTION PARLOR MEETING IN TZFAT — MOSHE FEIGLIN (Zehut)\n📅 Date: Sunday, October 25th\n🕗 Time: 8:00 PM (20:00)\n📍 Location: Tzfat (Exact address provided upon RSVP — Registration Required)\n\nBefore going to the ballot box, come hear Moshe Feiglin\x27s vision for Israel\x27s security, economy, and sovereignty, and ask your questions in person.\n\nRSVP & Host/Attendee Registration required at the link below:\n$shareUrl";
+          ? "🎙️ חוג בית בצפת לפני הבחירות — משה פייגלין (זהות)\n📅 תאריך: יום שני, 26 באוקטובר\n🕗 שעה: 20:00\n📍 מיקום: צפת (מיקום מדויק או קישור לשידור חי יישלחו לנרשמים המאומתים)\n\nלפני שהולכים לקלפי, בואו לשמוע את החזון של משה פייגלין לביטחון, כלכלה וריבונות, ולשאול את השאלות הקשות פנים אל פנים.\n\nלהרשמה מראש (לאירוח או להשתתפות במפגש) לחצו כאן:\n$shareUrl"
+          : "🎙️ PRE-ELECTION PARLOR MEETING IN TZFAT — MOSHE FEIGLIN (Zehut)\n📅 Date: Monday, October 26th\n🕗 Time: 8:00 PM (20:00)\n📍 Location: Tzfat (Exact location or Live Briefing link sent to verified RSVPs)\n\nBefore going to the ballot box, come hear Moshe Feiglin\x27s vision for Israel\x27s security, economy, and sovereignty, and ask your questions in person.\n\nRSVP & Host/Attendee Registration required at the link below:\n$shareUrl";
     } else {
       shareText = isHe
           ? (useSpecificCity
-              ? "רוצים להביא את משה פייגלין לחוג בית ב$currentCity! רוצים לארח או להשתתף במפגש הקרוב ב$currentCity? הירשמו כאן:\n\n$shareUrl"
-              : "רוצים להביא את משה פייגלין לעיר שלכם! רוצים לארח חוג בית או להצטרף למפגש הקרוב באזורכם? הירשמו כאן:\n\n$shareUrl")
+              ? "🚨 48 השעות האחרונות לפני הבחירות ב$currentCity! מתפקדים עכשיו ב$currentCity לשידור החי עם משה פייגלין, מפגשי בזק והתארגנות ליום הבחירות:\n\n$shareUrl"
+              : "🚨 48 השעות האחרונות לפני הבחירות! מתפקדים עכשיו בעיר שלכם לשידור החי עם משה פייגלין, מפגשי בזק והתארגנות ליום הבחירות:\n\n$shareUrl")
           : (useSpecificCity
-              ? "We want to bring Moshe Feiglin for a parlor meeting in $currentCity! Want to host or attend in $currentCity? Sign up here:\n\n$shareUrl"
-              : "Want to bring Moshe Feiglin to your city? Sign up to host or attend a parlor meeting near you:\n\n$shareUrl");
+              ? "🚨 FINAL 48 HOURS IN ${currentCity.toUpperCase()}! Lock in your spot in $currentCity for Moshe Feiglin's Live Pre-Election Briefing, last-minute stops & Election Day mobilization:\n\n$shareUrl"
+              : "🚨 FINAL 48 HOURS BEFORE ELECTION DAY! Lock in your city for Moshe Feiglin's Live Pre-Election Briefing, last-minute stops & Election Day mobilization:\n\n$shareUrl");
     }
 
     await Share.share(shareText);
@@ -340,50 +340,15 @@ class _HostMosheTabState extends State<HostMosheTab> {
           final bool isVerified = isLoggedIn && phone != null && phone.isNotEmpty;
           final String activeCity = _getCleanCityName();
 
-          return Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24.0, 12.0, 24.0, 30.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Align(
-                    alignment: isHebrew ? Alignment.topLeft : Alignment.topRight,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: () => _shareHostMoshe(includeCity: false),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.share,
-                                color: Color(0xFF103856),
-                                size: 28,
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                isHebrew ? "שתף\nעמוד" : "Share\nPage",
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: Color(0xFF103856),
-                                  fontSize: 11,
-                                  height: 1.1,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  MagenDavidHouseIcon(
+          return Stack(fit: StackFit.expand, children: [
+Center(
+child: SingleChildScrollView(
+padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 30.0),
+child: Column(
+mainAxisAlignment: MainAxisAlignment.center,
+crossAxisAlignment: CrossAxisAlignment.center,
+children: [
+MagenDavidHouseIcon(
                     size: 70,
                     houseColor: Colors.lightBlue,
                     starColor: Colors.white,
@@ -762,7 +727,7 @@ class _HostMosheTabState extends State<HostMosheTab> {
                                     FittedBox(
                                       fit: BoxFit.scaleDown,
                                       child: Text(
-                                        isHebrew ? "שתף הזמנה לחוג בית" : "Share Parlor Meeting Invite",
+                                        isHebrew ? "שתף התפקדות 48 שעות אחרונות" : "Share Final 48h Mobilization",
                                         textAlign: TextAlign.center,
                                         style: const TextStyle(
                                           color: Color(0xFF103856),
@@ -798,11 +763,13 @@ class _HostMosheTabState extends State<HostMosheTab> {
                     ),
                   ),
                 ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
+),
+),
+),
+],
+);
+},
+),
+);
+}
 }

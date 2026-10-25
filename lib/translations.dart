@@ -160,14 +160,14 @@ class AppTranslations {
     "sync_reset_cancel": "CANCEL",
     "sync_reset_confirm": "YES, NUKE IT",
     "tab_host": "Bring Moshe",
-    "host_title": "Invite Moshe to Your City",
-    "host_desc": "The algorithms are throttling us, so we are taking the country back one living room at a time. Bring Moshe to your city.",
+    "host_title": "Final 48 Hours: Lock In Your City",
+    "host_desc": "We are in the final stretch before Election Day! Verify your number below to lock in your city for Moshe's live pre-election briefing, last-minute stops, and Election Day mobilization.",
     "host_city_hint": "Select your city",
-    "host_submit": "Bring Moshe to My City",
-    "host_success": "Request received! We will contact you soon to coordinate.",
-    "host_verify_btn": "Verify to Attend or Host",
-        "host_intent_host": "I can host Moshe at my home",
-  "host_intent_attend": "I'd be happy to attend in {}"
+    "host_submit": "Lock In My City Now",
+    "host_success": "You are locked in! Watch your WhatsApp for the Live Briefing link and city updates.",
+    "host_verify_btn": "Verify & Lock In Your City",
+        "host_intent_host": "I can host a hub / watch party in my city",
+  "host_intent_attend": "Lock me in for {} updates & Live Briefing"
   };
 
   static const Map<String, dynamic> he = {
@@ -332,14 +332,14 @@ class AppTranslations {
     "sync_reset_cancel": "ביטול",
     "sync_reset_confirm": "כן, מחק הכל",
     "tab_host": "הבא את משה",
-    "host_title": "הזמן את משה לחוג בית",
-    "host_desc": "האלגוריתם מצנזר אותנו, אז אנחנו מחזירים את המדינה סלון אחר סלון. הזמן את משה לעיר שלך.",
+    "host_title": "48 השעות האחרונות: מתפקדים בעיר שלכם",
+    "host_desc": "נכנסנו ליישורת האחרונה לפני פתיחת הקלפיות! אמתו את המספר שלכם כדי לשריין את העיר שלכם לשידור החי עם משה, מפגשי בזק והתארגנות ליום הבחירות.",
     "host_city_hint": "בחר עיר",
-    "host_submit": "הבא את משה לעיר שלי!",
-    "host_success": "הבקשה התקבלה! ניצור קשר בקרוב לתיאום.",
-    "host_verify_btn": "אמת חשבון להשתתפות או אירוח",
-        "host_intent_host": "אני יכול/ה לארח את משה אצלי בבית",
-"host_intent_attend": "אשמח להשתתף בחוג בית ב{}"
+    "host_submit": "שריין את העיר שלי עכשיו!",
+    "host_success": "נרשמת בהצלחה! קישור לשידור החי ועדכונים לעיר שלך יישלחו בוואטסאפ.",
+    "host_verify_btn": "אמת מספר והצטרף להתפקדות",
+        "host_intent_host": "אני יכול/ה לארח נקודת מפגש / צפייה משותפת",
+"host_intent_attend": "צרפו אותי לעדכונים ולשידור החי ב{}"
 
   };
 }
